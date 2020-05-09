@@ -33,12 +33,12 @@ class WorldGui:
                     "vxs": deque(maxlen=1000),
                 }
             self.particles[p.id]["ts"].append(p.t)
-            self.particles[p.id]["xs"].append(p.x - ox)
-            self.particles[p.id]["ys"].append(p.y - oy)
-            self.particles[p.id]["vxs"].append(p.vx)
-            self.particles[p.id]["vys"].append(p.vy)
-            self.particles[p.id]["axs"].append(p.ax)
-            self.particles[p.id]["ays"].append(p.ay)
+            self.particles[p.id]["xs"].append(p.r.x - ox)
+            self.particles[p.id]["ys"].append(p.r.y - oy)
+            self.particles[p.id]["vxs"].append(p.v.x)
+            self.particles[p.id]["vys"].append(p.v.y)
+            self.particles[p.id]["axs"].append(p.a.x)
+            self.particles[p.id]["ays"].append(p.a.y)
 
     def draw(self, surf, world, selected_particle):
 
@@ -135,7 +135,7 @@ class WorldViewer:
 
         self.origin = (surf.get_rect().w // 2, surf.get_rect().h // 2)
 
-        pos = world.particles[selected_particle_index].x , world.particles[selected_particle_index].y
+        pos = world.particles[selected_particle_index].r.x , world.particles[selected_particle_index].r.y
         if is_particle_origin :
             self.world_point_at_center = pos
         x, y = self.world_to_pixel_pos(pos)
@@ -186,7 +186,7 @@ class WorldViewer:
 
 class Viewer:
 
-    def __init__(self, width, height):
+    def __init__(self, width=800, height=600):
         pygame.init()
 
         self.width, self.height = width, height
