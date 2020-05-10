@@ -11,7 +11,9 @@ from plot import draw_plot
 
 
 class Entity:
-
+    """
+    Class representing an entity fo drawing purpose
+    """
     def __init__(self, id, r: Vector2, v: Vector2 = Vector2(0., 0.), a: Vector2 = Vector2(0., 0.)):
         self.id = id
         self.r = pygame.Vector2(r)
@@ -20,7 +22,9 @@ class Entity:
 
 
 class Particle:
-
+    """
+    Class representing a particle for darwing purpose
+    """
     def __init__(self, p: physics.Particle):
         self.rx = p.r.x
         self.ry = p.r.y
@@ -93,8 +97,6 @@ class Plotter:
     def reset(self):
         self.particles = {}
 
-    def set_center(self, pos):
-        self.center = pos
 
     def _draw_selected_highlight(self, world, observer):
         index = 0
@@ -244,7 +246,7 @@ class Window:
     viewer_ratio_rect = ((0., 0.), (0.5, 1.))
     plotter_ratio_rect = ((0.5, 0.), (0.5, 1.))
 
-    def __init__(self, width: int = 1920, height: int = 1080):
+    def __init__(self, width: int = 800, height: int = 600):
         pygame.init()
 
         self.width, self.height = width, height
