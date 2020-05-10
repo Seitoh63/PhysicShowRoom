@@ -3,7 +3,7 @@ import random
 import pygame
 
 from physics import World, Particle
-from viewer import Viewer
+from window import Window
 from pygame import Vector2
 
 def create_world():
@@ -20,7 +20,7 @@ def create_world():
 
 def main():
     world = create_world()
-    viewer = Viewer()
+    viewer = Window()
 
     clock = pygame.time.Clock()
     while True:
