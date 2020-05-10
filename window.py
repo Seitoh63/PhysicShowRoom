@@ -12,9 +12,11 @@ from plot import draw_plot
 
 class Entity:
 
-    def __init__(self, r: Vector2, v: Vector2 = Vector2(0., 0.)):
+    def __init__(self, id, r: Vector2, v: Vector2 = Vector2(0., 0.), a: Vector2 = Vector2(0., 0.)):
+        self.id = id
         self.r = pygame.Vector2(r)
         self.v = pygame.Vector2(v)
+        self.a = pygame.Vector2(a)
 
 
 class Particle:
@@ -38,86 +40,106 @@ class Particle:
 
 
 class Plotter:
+    """
+    Class that show information on entities with different plots
+    """
     text_width = 100
     font = pygame.font.SysFont("comicsansms", 8)
+    queue_size = 500
+    point_to_skip = 0
 
-    def __init__(self, surface: pygame.Surface):
+    def __init__(self, surf: pygame.Surface):
+        self.surf = surf
         self.particles = {}
-        self.center = (0, 0)
-        self.v = (0, 0)
+        self.reference = (0, 0)
 
-    def _update(self, world):
+        self.skipped_points = -1
 
-        ox, oy = self.center
+    def update(self, world, observer: Entity):
+        if 0 <= self.skipped_points < Plotter.point_to_skip:
+            self.skipped_points += 1
+            return
+
+        self.skipped_points = 0
 
         for p in world.particles:
             if p.id not in self.particles:
                 self.particles[p.id] = {
-                    "ts": deque(maxlen=1000),
-                    "xs": deque(maxlen=1000),
-                    "ys": deque(maxlen=1000),
-                    "vys": deque(maxlen=1000),
-                    "axs": deque(maxlen=1000),
-                    "ays": deque(maxlen=1000),
-                    "vxs": deque(maxlen=1000),
+                    "ts": deque(maxlen=Plotter.queue_size),
+                    "xs": deque(maxlen=Plotter.queue_size),
+                    "ys": deque(maxlen=Plotter.queue_size),
+                    "vys": deque(maxlen=Plotter.queue_size),
+                    "axs": deque(maxlen=Plotter.queue_size),
+                    "ays": deque(maxlen=Plotter.queue_size),
+                    "vxs": deque(maxlen=Plotter.queue_size),
                 }
             self.particles[p.id]["ts"].append(p.t)
-            self.particles[p.id]["xs"].append(p.r.x - ox)
-            self.particles[p.id]["ys"].append(p.r.y - oy)
-            self.particles[p.id]["vxs"].append(p.v.x)
-            self.particles[p.id]["vys"].append(p.v.y)
-            self.particles[p.id]["axs"].append(p.a.x)
-            self.particles[p.id]["ays"].append(p.a.y)
+            self.particles[p.id]["xs"].append(p.r.x - observer.r.x)
+            self.particles[p.id]["ys"].append(p.r.y - observer.r.y)
+            self.particles[p.id]["vxs"].append(p.v.x - observer.v.x)
+            self.particles[p.id]["vys"].append(p.v.y - observer.v.y)
+            self.particles[p.id]["axs"].append(p.a.x - observer.a.x)
+            self.particles[p.id]["ays"].append(p.a.y - observer.a.y)
 
-    def draw(self, world, selected_particle):
+    def draw(self, world, observer: Entity):
+        self.surf.fill((0, 0, 0))
 
-        self._update(world)
+        self._draw_selected_highlight(world, observer)
+        self._draw_entities_names()
+        self._draw_plots(observer)
 
-        width, height = surf.get_rect().size
-        plot_width = width - Plotter.text_width
-
-        surf.fill((0, 0, 0))
-
-        text = Plotter.font.render("Particle", True, (255, 255, 255))
-        rect = text.get_rect()
-
-        rect.top += 8 * selected_particle
-        rect.left = 5
-        pygame.draw.rect(surf, (128, 128, 128), rect)
-
-        h = 0
-        for _ in self.particles:
-            surf.blit(text, (5, h))
-            h += 8
-
-        p = world.particles[selected_particle]
-        ts = self.particles[p.id]["ts"]
-        xs = self.particles[p.id]["xs"]
-        ys = self.particles[p.id]["ys"]
-        vxs = self.particles[p.id]["vxs"]
-        vys = self.particles[p.id]["vys"]
-        axs = self.particles[p.id]["axs"]
-        ays = self.particles[p.id]["ays"]
-
-        p_x0 = Plotter.text_width
-        p_x1 = p_x0 + (plot_width // 2)
-        p_w = plot_width // 2
-        p_h = height // 3
-
-        draw_plot(surf, pygame.Rect(p_x0, 0, p_w, p_h), ts, xs, "x over time")
-        draw_plot(surf, pygame.Rect(p_x1, 0, p_w, p_h), ts, ys, "y over time")
-        draw_plot(surf, pygame.Rect(p_x0, p_h, p_w, p_h), ts, vxs, "Vx over time")
-        draw_plot(surf, pygame.Rect(p_x1, p_h, p_w, p_h), ts, vys, "Vy over time")
-        draw_plot(surf, pygame.Rect(p_x0, p_h * 2, p_w, p_h), ts, axs, "Ax over time")
-        draw_plot(surf, pygame.Rect(p_x1, p_h * 2, p_w, p_h), ts, ays, "Ay over time")
-
-        pygame.draw.rect(surf, (128, 0, 0), surf.get_rect(), 3)
+        pygame.draw.rect(self.surf, (128, 0, 0), self.surf.get_rect(), 3)
 
     def reset(self):
         self.particles = {}
 
     def set_center(self, pos):
         self.center = pos
+
+    def _draw_selected_highlight(self, world, observer):
+        index = 0
+        for i, p in enumerate(world.particles):
+            if p.id == observer.id:
+                index = i
+                break
+
+        text = Plotter.font.render("Particle", True, (255, 255, 255))
+        rect = text.get_rect()
+        rect.top += 8 * index
+        rect.left = 5
+        pygame.draw.rect(self.surf, (128, 128, 128), rect)
+
+    def _draw_entities_names(self):
+        text = Plotter.font.render("Particle", True, (255, 255, 255))
+        h = 0
+        for _ in self.particles:
+            self.surf.blit(text, (5, h))
+            h += 8
+
+    def _draw_plots(self, observer):
+        width, height = self.surf.get_rect().size
+        plot_width = width - Plotter.text_width
+
+        id = observer.id
+        ts = self.particles[id]["ts"]
+        xs = self.particles[id]["xs"]
+        ys = self.particles[id]["ys"]
+        vxs = self.particles[id]["vxs"]
+        vys = self.particles[id]["vys"]
+        axs = self.particles[id]["axs"]
+        ays = self.particles[id]["ays"]
+
+        p_x0 = Plotter.text_width
+        p_x1 = p_x0 + (plot_width // 2)
+        p_w = plot_width // 2
+        p_h = height // 3
+
+        draw_plot(self.surf, pygame.Rect(p_x0, 0, p_w, p_h), ts, xs, "x over time")
+        draw_plot(self.surf, pygame.Rect(p_x1, 0, p_w, p_h), ts, ys, "y over time")
+        draw_plot(self.surf, pygame.Rect(p_x0, p_h, p_w, p_h), ts, vxs, "Vx over time")
+        draw_plot(self.surf, pygame.Rect(p_x1, p_h, p_w, p_h), ts, vys, "Vy over time")
+        draw_plot(self.surf, pygame.Rect(p_x0, p_h * 2, p_w, p_h), ts, axs, "Ax over time")
+        draw_plot(self.surf, pygame.Rect(p_x1, p_h * 2, p_w, p_h), ts, ays, "Ay over time")
 
 
 class Viewer:
@@ -135,26 +157,29 @@ class Viewer:
         self.world_shift = (0, 0)  # shift between the center of the view and the origin of the world
         self.world_scale = 1  # n_pixel = world_length * world_scale
 
-    def draw(self, world, observer: Entity) -> None:
+    def draw(self, world, observer: Entity, selected: Entity) -> None:
         """
         Draw the view of the world
+        :param selected:
         :param world: world to be drawn
         :param observer :
         """
 
         self.surf.fill((0, 0, 0))
 
-        self._draw_observer_highlight(observer)
+        self.world_shift = observer.r.xy
+
+        self._draw_selected_highlight(selected)
         self._draw_world_rectangle(world)
         self._draw_reference_axis(observer)
-        self._draw_particles(world)
+        self._draw_particles(world, observer)
         self._draw_surface_frame()
 
-    def set_observer_shift(self, pos: Tuple[int,int]) -> None:
-        x,y = self.world_shift
+    def set_observer_shift(self, pos: Tuple[int, int]) -> None:
+        x, y = self.world_shift
         ox, oy = self.origin
-        sx,sy = self._pixel_to_world_len(pos[0]-ox), self._pixel_to_world_len(pos[1]-oy)
-        self.world_shift = x + sx, y+sy
+        sx, sy = self._pixel_to_world_len(pos[0] - ox), self._pixel_to_world_len(pos[1] - oy)
+        self.world_shift = x + sx, y + sy
 
     def increase_scale(self):
         self.world_scale *= 2
@@ -175,7 +200,7 @@ class Viewer:
     def _pixel_to_world_len(self, pixel_len):
         return int(pixel_len / self.world_scale)
 
-    def _draw_observer_highlight(self, observer):
+    def _draw_selected_highlight(self, observer):
         r = self._world_to_pixel_pos(observer.r.xy)
         pygame.draw.circle(self.surf, (255, 255, 255), r, 6)
 
@@ -185,20 +210,20 @@ class Viewer:
         pygame.draw.rect(self.surf, (0, 128, 128), pygame.Rect(x, y, w, h), 3)
 
     def _draw_reference_axis(self, observer):
-        x,y = self._world_to_pixel_pos(observer.r.xy)
-        pygame.draw.line(self.surf, (255, 255, 255), (x,y), (x + 10, y))
-        pygame.draw.line(self.surf, (255, 255, 255), (x,y), (x, y + 10))
+        x, y = self._world_to_pixel_pos(observer.r.xy)
+        pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x + 10, y))
+        pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x, y + 10))
         text = Viewer.font.render("{:.2f}".format(10 / self.world_scale), True, (255, 255, 255))
-        self.surf.blit(text, (x,y))
+        self.surf.blit(text, (x, y))
 
-    def _draw_particles(self, world):
+    def _draw_particles(self, world, observer):
         for pp in world.particles:
             p = Particle(pp)
             p.rx, p.ry = self._world_to_pixel_pos(p.r())
             p.rx, p.ry = int(p.rx), int(p.ry)
-            p.vx, p.vy = self._world_to_pixel_len(p.vx), self._world_to_pixel_len(p.vy)
+            p.vx, p.vy = self._world_to_pixel_len(p.vx - observer.v.x), self._world_to_pixel_len(p.vy - observer.v.y)
             p.vx, p.vy = int(p.vx), int(p.vy)
-            p.ax, p.ay = self._world_to_pixel_len(p.ax), self._world_to_pixel_len(p.ay)
+            p.ax, p.ay = self._world_to_pixel_len(p.ax - observer.a.x), self._world_to_pixel_len(p.ay - observer.a.y)
             p.ax, p.ay = int(p.ax), int(p.ay)
             self._draw_particle(p)
 
@@ -219,16 +244,17 @@ class Window:
     viewer_ratio_rect = ((0., 0.), (0.5, 1.))
     plotter_ratio_rect = ((0.5, 0.), (0.5, 1.))
 
-    def __init__(self, width: int = 800, height: int = 600):
+    def __init__(self, width: int = 1920, height: int = 1080):
         pygame.init()
 
         self.width, self.height = width, height
-        self.surf = pygame.display.set_mode((self.width, self.height))
+        self.surf = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
 
         self.viewer = Viewer(self._get_subsurface(Window.viewer_ratio_rect), self)
         self.plotter = Plotter(self._get_subsurface(Window.plotter_ratio_rect))
 
         self.selected_particle = 0
+        self.reference_particle = 0
 
     def update(self, world):
         """ Update the visible elements with the given world """
@@ -236,11 +262,16 @@ class Window:
         self._handle_events()
 
         self.selected_particle %= len(world.particles)
-        p = world.particles[self.selected_particle]
-        e = Entity(p.r, p.v)
+        selected_p = world.particles[self.selected_particle]
+        reference_p = world.particles[self.reference_particle]
+        selected = Entity(selected_p.id, selected_p.r, selected_p.v, selected_p.a)
+        reference = Entity(reference_p.id, reference_p.r, reference_p.v, reference_p.a)
 
-        self.viewer.draw(world, e)
-        # self.plotter.draw(world, self.selected_particle)
+        self.plotter.update(world, reference)
+
+        self.viewer.draw(world, reference, selected)
+        self.plotter.draw(world, selected)
+
         pygame.display.flip()
 
     def _handle_events(self):
@@ -259,6 +290,10 @@ class Window:
                 if event.key == pygame.K_UP:
                     self.selected_particle -= 1
 
+                if event.key == pygame.K_SPACE:
+                    self.reference_particle = self.selected_particle
+                    self.plotter.reset()
+
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     self.viewer.set_observer_shift(event.pos)
@@ -270,7 +305,7 @@ class Window:
     def _get_subsurface(self, ratio_rect: Tuple[Tuple[float, float], Tuple[float, float]]):
         rect_surf = self.surf.get_rect()
 
-        rect_sub_surf = Rect((0,0),(0,0))
+        rect_sub_surf = Rect((0, 0), (0, 0))
         rect_sub_surf.x = int(ratio_rect[0][0] * rect_surf.w)
         rect_sub_surf.w = int(ratio_rect[1][0] * rect_surf.w)
         rect_sub_surf.y = int(ratio_rect[0][1] * rect_surf.h)
