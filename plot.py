@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import pygame
 
 pygame.init()
@@ -48,32 +50,54 @@ def _draw_y_ticks(plot_surf, p0, p1, y_range):
         plot_surf.blit(text, (x0 - tick_width - text.get_rect().width, y_tick))
 
 
-def draw_plot(surf: pygame.Surface, rect: pygame.Rect, xs, ys, title):
-    w, h = rect.size
-    plot_surf = surf.subsurface(rect)
+def _draw_axis(surf: pygame.Surface, p0: Tuple[int, int], p1: Tuple[int, int]) -> None:
+    x0, y0 = p0
+    x1, y1 = p1
+    pygame.draw.line(surf, ax_color, (x0, y0), (x1, y0))
+    pygame.draw.line(surf, ax_color, (x0, y0), (x0, y1))
 
+
+def _draw_points(surf: pygame.Surface, xs, ys, p0, p1, minx, miny, lx, ly):
+    x0, y0 = p0
+    x1, y1 = p1
+    for p in zip(xs, ys):
+        x, y = p
+        x_pixel = int(x0 + (((x - minx) / lx) * (x1 - x0)))
+        y_pixel = int(y0 + (((y - miny) / ly) * (y1 - y0)))
+        pygame.draw.circle(surf, point_color, (x_pixel, y_pixel), point_size)
+
+def _draw_title(surf, rect, title):
+    text = title_font.render(title, True, title_color)
+    text_rect = text.get_rect()
+    text_rect.midtop = (rect.width // 2, 0)
+    surf.blit(text, text_rect)
+
+def draw_plot(surf: pygame.Surface, rect: pygame.Rect, xs: list, ys: list, title: str):
+    """
+    Draw a plot with data xs and ys on surface surf in rectangle rect
+    :param surf:
+    :param rect:
+    :param xs:
+    :param ys:
+    :param title:
+    :return:
+    """
+
+    plot_surf = surf.subsurface(rect)
+    w, h = rect.size
     x0, y0 = int(w * margin_ratio), int(h * (1 - margin_ratio))
     x1, y1 = int(w * (1 - margin_ratio)), int(h * margin_ratio)
-
-    pygame.draw.line(plot_surf, ax_color, (x0, y0), (x1, y0))
-    pygame.draw.line(plot_surf, ax_color, (x0, y0), (x0, y1))
-
     minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
     lx, ly = maxx - minx, maxy - miny
+
+    _draw_axis(plot_surf, (x0, y0), (x1, y1))
+    _draw_title(plot_surf, rect, title)
 
     if lx == 0. or ly == 0.:
         return
 
     _draw_x_ticks(plot_surf, (x0, y0), (x1, y0), (minx, maxx))
     _draw_y_ticks(plot_surf, (x0, y0), (x0, y1), (miny, maxy))
+    _draw_points(plot_surf, xs, ys, (x0, y0), (x1, y1), minx, miny, lx, ly)
 
-    for p in zip(xs, ys):
-        x, y = p
-        x_pixel = int(x0 + (((x - minx) / lx) * (x1 - x0)))
-        y_pixel = int(y0 + (((y - miny) / ly) * (y1 - y0)))
-        pygame.draw.circle(plot_surf, point_color, (x_pixel, y_pixel), point_size)
 
-    text = title_font.render(title, True, title_color)
-    text_rect = text.get_rect()
-    text_rect.midtop = (rect.width // 2, 0)
-    plot_surf.blit(text, text_rect)

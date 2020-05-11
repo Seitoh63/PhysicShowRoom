@@ -7,7 +7,7 @@ from window import Window
 from pygame import Vector2
 
 def create_world():
-    w = World((1000, 1000))
+    w = World((2000, 2000))
     n_particles = 20
     vmax = 100
     for _ in range(n_particles):
