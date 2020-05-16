@@ -8,7 +8,7 @@ from pygame import Vector2
 
 def create_world():
     w = World((2000, 2000))
-    n_particles = 20
+    n_particles = 5
     vmax = 100
     for _ in range(n_particles):
         pos = random.randint(0, w.rect.w), random.randint(0, w.rect.h)

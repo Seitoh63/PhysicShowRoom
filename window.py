@@ -1,5 +1,6 @@
 import sys
 from collections import deque
+from enum import Enum
 from typing import Tuple
 
 import pygame
@@ -9,21 +10,42 @@ from pygame.rect import Rect
 from plot import draw_plot
 
 
-class Entity:
+class ParticleKinematic:
     """
-    Class representing an entity fo drawing purpose
+    Class representing the kinematic at a given time of a particle
     """
 
-    def __init__(self, id, repr: str, t, r: Vector2, v: Vector2 = Vector2(0., 0.), a: Vector2 = Vector2(0., 0.)):
-        self.id = id
-        self.repr = repr
+    def __init__(self,
+                 t=0.,
+                 m=0.,
+                 r: Vector2 = Vector2(0., 0.),
+                 v: Vector2 = Vector2(0., 0.),
+                 a: Vector2 = Vector2(0., 0.)
+                 ):
         self.t = t
+        self.m = m
         self.r = pygame.Vector2(r)
         self.v = pygame.Vector2(v)
         self.a = pygame.Vector2(a)
 
+
+class EntityType(Enum):
+    Particle = 1,
+    World = 2
+
+
+class Entity:
+    """
+    Class representing an entity for drawing purpose
+    """
+
+    def __init__(self, id, type: EntityType, kin: ParticleKinematic):
+        self.id = id
+        self.type = type
+        self.kin = kin
+
     def __repr__(self):
-        return self.repr
+        return self.type.name
 
 
 class Plotter:
@@ -41,6 +63,14 @@ class Plotter:
         self.reference = (0, 0)
 
         self.skipped_points = -1
+        self.fill_functions = {
+            EntityType.World: self._fill_world_data,
+            EntityType.Particle: self._fill_particle_data,
+        }
+        self.plot_functions = {
+            EntityType.World: self._draw_world_plots,
+            EntityType.Particle: self._draw_particle_plots,
+        }
 
     def update(self, entities, observer: Entity):
         if 0 <= self.skipped_points < Plotter.point_to_skip:
@@ -50,40 +80,67 @@ class Plotter:
         self.skipped_points = 0
 
         for e in entities:
-            if e.id not in self.entity_dict:
-                self.entity_dict[e.id] = {
-                    "ts": deque(maxlen=Plotter.queue_size),
-                    "xs": deque(maxlen=Plotter.queue_size),
-                    "ys": deque(maxlen=Plotter.queue_size),
-                    "vys": deque(maxlen=Plotter.queue_size),
-                    "axs": deque(maxlen=Plotter.queue_size),
-                    "ays": deque(maxlen=Plotter.queue_size),
-                    "vxs": deque(maxlen=Plotter.queue_size),
-                }
-            self.entity_dict[e.id]["ts"].append(e.t)
-            self.entity_dict[e.id]["xs"].append(e.r.x - observer.r.x)
-            self.entity_dict[e.id]["ys"].append(e.r.y - observer.r.y)
-            self.entity_dict[e.id]["vxs"].append(e.v.x - observer.v.x)
-            self.entity_dict[e.id]["vys"].append(e.v.y - observer.v.y)
-            self.entity_dict[e.id]["axs"].append(e.a.x - observer.a.x)
-            self.entity_dict[e.id]["ays"].append(e.a.y - observer.a.y)
+            self.fill_functions[e.type](e, observer, entities)
 
-    def draw(self, observer: Entity, entities):
+    def _fill_particle_data(self, e: Entity, observer: Entity, entities):
+        if e.id not in self.entity_dict:
+            self.entity_dict[e.id] = {
+                "ts": deque(maxlen=Plotter.queue_size),
+                "xs": deque(maxlen=Plotter.queue_size),
+                "ys": deque(maxlen=Plotter.queue_size),
+                "vys": deque(maxlen=Plotter.queue_size),
+                "axs": deque(maxlen=Plotter.queue_size),
+                "ays": deque(maxlen=Plotter.queue_size),
+                "vxs": deque(maxlen=Plotter.queue_size),
+            }
+
+        self.entity_dict[e.id]["ts"].append(e.kin.t)
+        self.entity_dict[e.id]["xs"].append(e.kin.r.x - observer.kin.r.x)
+        self.entity_dict[e.id]["ys"].append(e.kin.r.y - observer.kin.r.y)
+        self.entity_dict[e.id]["vxs"].append(e.kin.v.x - observer.kin.v.x)
+        self.entity_dict[e.id]["vys"].append(e.kin.v.y - observer.kin.v.y)
+        self.entity_dict[e.id]["axs"].append(e.kin.a.x - observer.kin.a.x)
+        self.entity_dict[e.id]["ays"].append(e.kin.a.y - observer.kin.a.y)
+
+    def _fill_world_data(self, world: Entity, observer: Entity, entities):
+        if world.id not in self.entity_dict:
+            self.entity_dict[world.id] = {
+                "ts": deque(maxlen=Plotter.queue_size),
+                "pxs": deque(maxlen=Plotter.queue_size),
+                "pys": deque(maxlen=Plotter.queue_size),
+                "Es": deque(maxlen=Plotter.queue_size)
+            }
+        E = 0
+        p = Vector2()
+        for e in entities:
+            if e.type != EntityType.Particle:
+                continue
+
+            v = (e.kin.v - observer.kin.v)
+            E += 0.5 * e.kin.m * v.length_squared()
+            p += e.kin.m * v
+
+        self.entity_dict[world.id]["ts"].append(world.kin.t)
+        self.entity_dict[world.id]["Es"].append(E)
+        self.entity_dict[world.id]["pxs"].append(p.x)
+        self.entity_dict[world.id]["pys"].append(p.y)
+
+    def draw(self, selected: Entity, entities):
         self.surf.fill((0, 0, 0))
 
-        self._draw_selected_highlight(observer, entities)
+        self._draw_selected_highlight(selected, entities)
         self._draw_entities_names(entities)
-        self._draw_plots(observer)
+        self._draw_plots(selected)
 
         pygame.draw.rect(self.surf, (128, 0, 0), self.surf.get_rect(), 3)
 
     def reset(self):
         self.entity_dict = {}
 
-    def _draw_selected_highlight(self, observer, entities):
+    def _draw_selected_highlight(self, selected, entities):
         index = 0
         for i, p in enumerate(entities):
-            if p.id == observer.id:
+            if p.id == selected.id:
                 index = i
                 break
 
@@ -100,11 +157,14 @@ class Plotter:
             self.surf.blit(text, (5, h))
             h += 8
 
-    def _draw_plots(self, observer):
+    def _draw_plots(self, selected):
+        self.plot_functions[selected.type](selected)
+
+    def _draw_particle_plots(self, selected):
         width, height = self.surf.get_rect().size
         plot_width = width - Plotter.text_width
 
-        id = observer.id
+        id = selected.id
         ts = self.entity_dict[id]["ts"]
         xs = self.entity_dict[id]["xs"]
         ys = self.entity_dict[id]["ys"]
@@ -124,6 +184,25 @@ class Plotter:
         draw_plot(self.surf, pygame.Rect(p_x1, p_h, p_w, p_h), ts, vys, "Vy over time")
         draw_plot(self.surf, pygame.Rect(p_x0, p_h * 2, p_w, p_h), ts, axs, "Ax over time")
         draw_plot(self.surf, pygame.Rect(p_x1, p_h * 2, p_w, p_h), ts, ays, "Ay over time")
+
+    def _draw_world_plots(self, selected):
+        width, height = self.surf.get_rect().size
+        plot_width = width - Plotter.text_width
+
+        id = selected.id
+        ts = self.entity_dict[id]["ts"]
+        Es = self.entity_dict[id]["Es"]
+        pxs = self.entity_dict[id]["pxs"]
+        pys = self.entity_dict[id]["pys"]
+
+        p_x0 = Plotter.text_width
+        p_x1 = p_x0 + (plot_width // 2)
+        p_w = plot_width // 2
+        p_h = height // 3
+
+        draw_plot(self.surf, pygame.Rect(p_x0, 0, p_w * 2, p_h), ts, Es, "E over time")
+        draw_plot(self.surf, pygame.Rect(p_x0, p_h, p_w, p_h), ts, pxs, "px over time")
+        draw_plot(self.surf, pygame.Rect(p_x1, p_h, p_w, p_h), ts, pys, "py over time")
 
 
 class Viewer:
@@ -151,7 +230,7 @@ class Viewer:
 
         self.surf.fill((0, 0, 0))
 
-        self.world_shift = observer.r.xy
+        self.world_shift = observer.kin.r.xy
 
         self._draw_selected_highlight(selected)
         self._draw_world_rectangle(world)
@@ -185,7 +264,7 @@ class Viewer:
         return int(pixel_len / self.world_scale)
 
     def _draw_selected_highlight(self, observer):
-        r = self._world_to_pixel_pos(observer.r.xy)
+        r = self._world_to_pixel_pos(observer.kin.r.xy)
         pygame.draw.circle(self.surf, (255, 255, 255), r, 6)
 
     def _draw_world_rectangle(self, world):
@@ -194,7 +273,7 @@ class Viewer:
         pygame.draw.rect(self.surf, (0, 128, 128), pygame.Rect(x, y, w, h), 3)
 
     def _draw_reference_axis(self, observer):
-        x, y = self._world_to_pixel_pos(observer.r.xy)
+        x, y = self._world_to_pixel_pos(observer.kin.r.xy)
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x + 10, y))
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x, y + 10))
         text = Viewer.font.render("{:.2f}".format(10 / self.world_scale), True, (255, 255, 255))
@@ -204,9 +283,9 @@ class Viewer:
         for p in world.particles:
             r = self._world_to_pixel_pos(p.r)
             r = int(r[0]), int(r[1])
-            v = self._world_to_pixel_len(p.v.x - observer.v.x), self._world_to_pixel_len(p.v.y - observer.v.y)
+            v = self._world_to_pixel_len(p.v.x - observer.kin.v.x), self._world_to_pixel_len(p.v.y - observer.kin.v.y)
             v = int(v[0]), int(v[1])
-            a = self._world_to_pixel_len(p.a.x - observer.a.x), self._world_to_pixel_len(p.a.y - observer.a.y)
+            a = self._world_to_pixel_len(p.a.x - observer.kin.a.x), self._world_to_pixel_len(p.a.y - observer.kin.a.y)
             a = int(a[0]), int(a[1])
             self._draw_particle(r, v, a)
 
@@ -298,7 +377,12 @@ class Window:
     def _get_entities(self, world):
 
         entities = [
-            Entity(world.id, "world", world.t, Vector2(world.rect.w // 2, world.rect.h // 2), Vector2(), Vector2())]
+            Entity(world.id,
+                   EntityType.World,
+                   ParticleKinematic(world.t, 0., Vector2(world.rect.w // 2, world.rect.h // 2))
+                   )
+        ]
+
         for p in world.particles:
-            entities.append(Entity(p.id, "particle", p.t, p.r, p.v, p.a))
+            entities.append(Entity(p.id, EntityType.Particle, ParticleKinematic(p.t, p.m, p.r, p.v, p.a)))
         return entities
