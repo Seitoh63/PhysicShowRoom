@@ -20,12 +20,17 @@ class Particle:
         self.t = 0  # living duration in seconds
         self.m = m
 
+        self.previous_r = None
         self.r = Vector2(r)
         self.v = Vector2(v)
         self.a = Vector2()
 
-    def update(self, dt: float, f: Vector2) -> None:
+    def update(self, dt: float, f: Vector2):
+        self._update_euler(dt, f)
+
+    def _update_euler(self, dt: float, f: Vector2) -> None:
         self.t += dt
+        self.previous_r = self.r
 
         self.a = f / self.m
         self.v += self.a * dt

@@ -6,7 +6,6 @@ import pygame
 from pygame import Vector2
 from pygame.rect import Rect
 
-import physics
 from plot import draw_plot
 
 
@@ -15,7 +14,7 @@ class Entity:
     Class representing an entity fo drawing purpose
     """
 
-    def __init__(self, id, repr: str,t, r: Vector2, v: Vector2 = Vector2(0., 0.), a: Vector2 = Vector2(0., 0.)):
+    def __init__(self, id, repr: str, t, r: Vector2, v: Vector2 = Vector2(0., 0.), a: Vector2 = Vector2(0., 0.)):
         self.id = id
         self.repr = repr
         self.t = t
@@ -25,29 +24,6 @@ class Entity:
 
     def __repr__(self):
         return self.repr
-
-
-class Particle:
-    """
-    Class representing a particle for darwing purpose
-    """
-
-    def __init__(self, p: physics.Particle):
-        self.rx = p.r.x
-        self.ry = p.r.y
-        self.vx = p.v.x
-        self.vy = p.v.y
-        self.ax = p.a.x
-        self.ay = p.a.y
-
-    def r(self):
-        return self.rx, self.ry
-
-    def v(self):
-        return self.vx, self.vy
-
-    def a(self):
-        return self.ax, self.ay
 
 
 class Plotter:
@@ -225,20 +201,19 @@ class Viewer:
         self.surf.blit(text, (x, y))
 
     def _draw_particles(self, world, observer):
-        for pp in world.particles:
-            p = Particle(pp)
-            p.rx, p.ry = self._world_to_pixel_pos(p.r())
-            p.rx, p.ry = int(p.rx), int(p.ry)
-            p.vx, p.vy = self._world_to_pixel_len(p.vx - observer.v.x), self._world_to_pixel_len(p.vy - observer.v.y)
-            p.vx, p.vy = int(p.vx), int(p.vy)
-            p.ax, p.ay = self._world_to_pixel_len(p.ax - observer.a.x), self._world_to_pixel_len(p.ay - observer.a.y)
-            p.ax, p.ay = int(p.ax), int(p.ay)
-            self._draw_particle(p)
+        for p in world.particles:
+            r = self._world_to_pixel_pos(p.r)
+            r = int(r[0]), int(r[1])
+            v = self._world_to_pixel_len(p.v.x - observer.v.x), self._world_to_pixel_len(p.v.y - observer.v.y)
+            v = int(v[0]), int(v[1])
+            a = self._world_to_pixel_len(p.a.x - observer.a.x), self._world_to_pixel_len(p.a.y - observer.a.y)
+            a = int(a[0]), int(a[1])
+            self._draw_particle(r, v, a)
 
-    def _draw_particle(self, p):
-        pygame.draw.circle(self.surf, (255, 0, 0), p.r(), 3)
-        pygame.draw.line(self.surf, (0, 255, 0), p.r(), (p.rx + p.vx, p.ry + p.vy), 2)
-        pygame.draw.line(self.surf, (0, 0, 255), p.r(), (p.rx + p.ax, p.ry + p.ay), 2)
+    def _draw_particle(self, r, v, a):
+        pygame.draw.circle(self.surf, (255, 0, 0), r, 3)
+        pygame.draw.line(self.surf, (0, 255, 0), r, (r[0] + v[0], r[1] + v[1]), 2)
+        pygame.draw.line(self.surf, (0, 0, 255), r, (r[0] + a[0], r[1] + a[1]), 2)
 
     def _draw_surface_frame(self):
         pygame.draw.rect(self.surf, (128, 0, 0), self.surf.get_rect(), 3)
@@ -322,7 +297,8 @@ class Window:
 
     def _get_entities(self, world):
 
-        entities = [Entity(world.id,"world" , world.t, Vector2(world.rect.w//2, world.rect.h//2), Vector2(), Vector2())]
+        entities = [
+            Entity(world.id, "world", world.t, Vector2(world.rect.w // 2, world.rect.h // 2), Vector2(), Vector2())]
         for p in world.particles:
             entities.append(Entity(p.id, "particle", p.t, p.r, p.v, p.a))
         return entities
