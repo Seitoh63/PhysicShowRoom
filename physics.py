@@ -41,6 +41,8 @@ class World:
     def __init__(self, dim: Tuple[int, int]):
         self.rect = pygame.Rect((0, 0), dim)
         self.particles = []
+        self.id = uuid.uuid1()
+        self.t = 0
 
     def add_particle(self, p: Particle) -> None:
         """
@@ -53,6 +55,7 @@ class World:
         Evolve the world for a given amount of time
         :param dt: evolution time in seconds
         """
+        self.t += dt
 
         forces = []
         for p in self.particles:

@@ -15,7 +15,7 @@ margin_ratio = 10 / 100
 
 tick_label_font = pygame.font.SysFont("comicsansms", 8)
 tick_label_color = (255, 255, 255)
-tick_label_format = '{:3.2f}'
+tick_label_format = '{:3.0f}'
 
 title_font = pygame.font.SysFont("comicsansms", 12)
 title_color = (255, 255, 255)
@@ -60,17 +60,26 @@ def _draw_axis(surf: pygame.Surface, p0: Tuple[int, int], p1: Tuple[int, int]) -
 def _draw_points(surf: pygame.Surface, xs, ys, p0, p1, minx, miny, lx, ly):
     x0, y0 = p0
     x1, y1 = p1
+
+    previous_x_pixel, previous_y_pixel = 0, 0
+
     for p in zip(xs, ys):
         x, y = p
         x_pixel = int(x0 + (((x - minx) / lx) * (x1 - x0)))
         y_pixel = int(y0 + (((y - miny) / ly) * (y1 - y0)))
+
+        if x_pixel == previous_x_pixel and y_pixel == previous_y_pixel:
+            continue
+
         pygame.draw.circle(surf, point_color, (x_pixel, y_pixel), point_size)
+
 
 def _draw_title(surf, rect, title):
     text = title_font.render(title, True, title_color)
     text_rect = text.get_rect()
     text_rect.midtop = (rect.width // 2, 0)
     surf.blit(text, text_rect)
+
 
 def draw_plot(surf: pygame.Surface, rect: pygame.Rect, xs: list, ys: list, title: str):
     """
@@ -99,5 +108,3 @@ def draw_plot(surf: pygame.Surface, rect: pygame.Rect, xs: list, ys: list, title
     _draw_x_ticks(plot_surf, (x0, y0), (x1, y0), (minx, maxx))
     _draw_y_ticks(plot_surf, (x0, y0), (x0, y1), (miny, maxy))
     _draw_points(plot_surf, xs, ys, (x0, y0), (x1, y1), minx, miny, lx, ly)
-
-

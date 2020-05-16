@@ -14,17 +14,24 @@ class Entity:
     """
     Class representing an entity fo drawing purpose
     """
-    def __init__(self, id, r: Vector2, v: Vector2 = Vector2(0., 0.), a: Vector2 = Vector2(0., 0.)):
+
+    def __init__(self, id, repr: str,t, r: Vector2, v: Vector2 = Vector2(0., 0.), a: Vector2 = Vector2(0., 0.)):
         self.id = id
+        self.repr = repr
+        self.t = t
         self.r = pygame.Vector2(r)
         self.v = pygame.Vector2(v)
         self.a = pygame.Vector2(a)
+
+    def __repr__(self):
+        return self.repr
 
 
 class Particle:
     """
     Class representing a particle for darwing purpose
     """
+
     def __init__(self, p: physics.Particle):
         self.rx = p.r.x
         self.ry = p.r.y
@@ -47,28 +54,28 @@ class Plotter:
     """
     Class that show information on entities with different plots
     """
-    text_width = 100
+    text_width = 40
     font = pygame.font.SysFont("comicsansms", 8)
-    queue_size = 500
+    queue_size = 1000
     point_to_skip = 0
 
     def __init__(self, surf: pygame.Surface):
         self.surf = surf
-        self.particles = {}
+        self.entity_dict = {}
         self.reference = (0, 0)
 
         self.skipped_points = -1
 
-    def update(self, world, observer: Entity):
+    def update(self, entities, observer: Entity):
         if 0 <= self.skipped_points < Plotter.point_to_skip:
             self.skipped_points += 1
             return
 
         self.skipped_points = 0
 
-        for p in world.particles:
-            if p.id not in self.particles:
-                self.particles[p.id] = {
+        for e in entities:
+            if e.id not in self.entity_dict:
+                self.entity_dict[e.id] = {
                     "ts": deque(maxlen=Plotter.queue_size),
                     "xs": deque(maxlen=Plotter.queue_size),
                     "ys": deque(maxlen=Plotter.queue_size),
@@ -77,44 +84,43 @@ class Plotter:
                     "ays": deque(maxlen=Plotter.queue_size),
                     "vxs": deque(maxlen=Plotter.queue_size),
                 }
-            self.particles[p.id]["ts"].append(p.t)
-            self.particles[p.id]["xs"].append(p.r.x - observer.r.x)
-            self.particles[p.id]["ys"].append(p.r.y - observer.r.y)
-            self.particles[p.id]["vxs"].append(p.v.x - observer.v.x)
-            self.particles[p.id]["vys"].append(p.v.y - observer.v.y)
-            self.particles[p.id]["axs"].append(p.a.x - observer.a.x)
-            self.particles[p.id]["ays"].append(p.a.y - observer.a.y)
+            self.entity_dict[e.id]["ts"].append(e.t)
+            self.entity_dict[e.id]["xs"].append(e.r.x - observer.r.x)
+            self.entity_dict[e.id]["ys"].append(e.r.y - observer.r.y)
+            self.entity_dict[e.id]["vxs"].append(e.v.x - observer.v.x)
+            self.entity_dict[e.id]["vys"].append(e.v.y - observer.v.y)
+            self.entity_dict[e.id]["axs"].append(e.a.x - observer.a.x)
+            self.entity_dict[e.id]["ays"].append(e.a.y - observer.a.y)
 
-    def draw(self, world, observer: Entity):
+    def draw(self, observer: Entity, entities):
         self.surf.fill((0, 0, 0))
 
-        self._draw_selected_highlight(world, observer)
-        self._draw_entities_names()
+        self._draw_selected_highlight(observer, entities)
+        self._draw_entities_names(entities)
         self._draw_plots(observer)
 
         pygame.draw.rect(self.surf, (128, 0, 0), self.surf.get_rect(), 3)
 
     def reset(self):
-        self.particles = {}
+        self.entity_dict = {}
 
-
-    def _draw_selected_highlight(self, world, observer):
+    def _draw_selected_highlight(self, observer, entities):
         index = 0
-        for i, p in enumerate(world.particles):
+        for i, p in enumerate(entities):
             if p.id == observer.id:
                 index = i
                 break
 
-        text = Plotter.font.render("Particle", True, (255, 255, 255))
+        text = Plotter.font.render(repr(entities[index]), True, (255, 255, 255))
         rect = text.get_rect()
         rect.top += 8 * index
         rect.left = 5
         pygame.draw.rect(self.surf, (128, 128, 128), rect)
 
-    def _draw_entities_names(self):
-        text = Plotter.font.render("Particle", True, (255, 255, 255))
+    def _draw_entities_names(self, entities):
         h = 0
-        for _ in self.particles:
+        for e in entities:
+            text = Plotter.font.render(repr(e), True, (255, 255, 255))
             self.surf.blit(text, (5, h))
             h += 8
 
@@ -123,13 +129,13 @@ class Plotter:
         plot_width = width - Plotter.text_width
 
         id = observer.id
-        ts = self.particles[id]["ts"]
-        xs = self.particles[id]["xs"]
-        ys = self.particles[id]["ys"]
-        vxs = self.particles[id]["vxs"]
-        vys = self.particles[id]["vys"]
-        axs = self.particles[id]["axs"]
-        ays = self.particles[id]["ays"]
+        ts = self.entity_dict[id]["ts"]
+        xs = self.entity_dict[id]["xs"]
+        ys = self.entity_dict[id]["ys"]
+        vxs = self.entity_dict[id]["vxs"]
+        vys = self.entity_dict[id]["vys"]
+        axs = self.entity_dict[id]["axs"]
+        ays = self.entity_dict[id]["ays"]
 
         p_x0 = Plotter.text_width
         p_x1 = p_x0 + (plot_width // 2)
@@ -246,33 +252,32 @@ class Window:
     viewer_ratio_rect = ((0., 0.), (0.5, 1.))
     plotter_ratio_rect = ((0.5, 0.), (0.5, 1.))
 
-    def __init__(self, width: int = 800, height: int = 600):
+    def __init__(self, width: int = 800, height: int = 800):
         pygame.init()
 
         self.width, self.height = width, height
-        self.surf = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
+        self.surf = pygame.display.set_mode((self.width, self.height))
 
         self.viewer = Viewer(self._get_subsurface(Window.viewer_ratio_rect), self)
         self.plotter = Plotter(self._get_subsurface(Window.plotter_ratio_rect))
 
-        self.selected_particle = 0
-        self.reference_particle = 0
+        self.selected_entity_index = 0
+        self.reference_entity_index = 0
 
     def update(self, world):
         """ Update the visible elements with the given world """
 
         self._handle_events()
 
-        self.selected_particle %= len(world.particles)
-        selected_p = world.particles[self.selected_particle]
-        reference_p = world.particles[self.reference_particle]
-        selected = Entity(selected_p.id, selected_p.r, selected_p.v, selected_p.a)
-        reference = Entity(reference_p.id, reference_p.r, reference_p.v, reference_p.a)
+        entities = self._get_entities(world)
+        self.selected_entity_index %= len(entities)
+        selected_entity = entities[self.selected_entity_index]
+        reference_entity = entities[self.reference_entity_index]
 
-        self.plotter.update(world, reference)
+        self.plotter.update(entities, reference_entity)
 
-        self.viewer.draw(world, reference, selected)
-        self.plotter.draw(world, selected)
+        self.viewer.draw(world, reference_entity, selected_entity)
+        self.plotter.draw(selected_entity, entities)
 
         pygame.display.flip()
 
@@ -287,13 +292,13 @@ class Window:
                     sys.exit()
 
                 if event.key == pygame.K_DOWN:
-                    self.selected_particle += 1
+                    self.selected_entity_index += 1
 
                 if event.key == pygame.K_UP:
-                    self.selected_particle -= 1
+                    self.selected_entity_index -= 1
 
                 if event.key == pygame.K_SPACE:
-                    self.reference_particle = self.selected_particle
+                    self.reference_entity_index = self.selected_entity_index
                     self.plotter.reset()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -314,3 +319,10 @@ class Window:
         rect_sub_surf.h = int(ratio_rect[1][1] * rect_surf.h)
 
         return self.surf.subsurface(rect_sub_surf)
+
+    def _get_entities(self, world):
+
+        entities = [Entity(world.id,"world" , world.t, Vector2(world.rect.w//2, world.rect.h//2), Vector2(), Vector2())]
+        for p in world.particles:
+            entities.append(Entity(p.id, "particle", p.t, p.r, p.v, p.a))
+        return entities
