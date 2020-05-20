@@ -37,6 +37,27 @@ class Particle:
         self.r += self.v * dt
 
 
+class CentralForce:
+
+    def __init__(self, center: Vector2, magn: float):
+        self.center = center
+        self.magn = magn
+
+    def applied_on(self, p):
+        f = (self.center - p.r).normalize()
+        f.scale_to_length(self.magn / self.center.distance_to(p.r))
+        return f
+
+
+class ConstantForce:
+
+    def __init__(self, f: Vector2):
+        self.f = f
+
+    def applied_on(self, p):
+        return self.f
+
+
 class World:
     """
     Top class for the physics simulations. It handles the main loop of updates for each entity. It also shows
@@ -46,6 +67,7 @@ class World:
     def __init__(self, dim: Tuple[int, int]):
         self.rect = pygame.Rect((0, 0), dim)
         self.particles = []
+        self.forces = []
         self.id = uuid.uuid1()
         self.t = 0
 
@@ -71,9 +93,9 @@ class World:
             self._handle_out_of_world(p)
 
     def _compute_force_on(self, p: Particle):
-        c = Vector2(self.rect.w // 2, self.rect.h // 2)
-        f = (c - p.r).normalize()
-        f.scale_to_length(10000. / c.distance_to(p.r))
+        f = Vector2()
+        for force in self.forces:
+            f += force.applied_on(p)
         return f
 
     def _handle_out_of_world(self, p: Particle) -> None:

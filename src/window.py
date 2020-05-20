@@ -7,7 +7,7 @@ import pygame
 from pygame import Vector2
 from pygame.rect import Rect
 
-from plot import draw_plot
+from src.plot import draw_plot
 
 
 class ParticleKinematic:
@@ -306,7 +306,7 @@ class Window:
     viewer_ratio_rect = ((0., 0.), (0.5, 1.))
     plotter_ratio_rect = ((0.5, 0.), (0.5, 1.))
 
-    def __init__(self, width: int = 800, height: int = 800):
+    def __init__(self, width: int = 1600, height: int = 1080):
         pygame.init()
 
         self.width, self.height = width, height
@@ -354,6 +354,12 @@ class Window:
                 if event.key == pygame.K_SPACE:
                     self.reference_entity_index = self.selected_entity_index
                     self.plotter.reset()
+
+                if event.key == pygame.K_KP_PLUS:
+                    self.viewer.increase_scale()
+
+                if event.key == pygame.K_KP_MINUS:
+                    self.viewer.decrease_scale()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:

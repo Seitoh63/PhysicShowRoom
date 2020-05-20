@@ -84,12 +84,11 @@ def _draw_title(surf, rect, title):
 def draw_plot(surf: pygame.Surface, rect: pygame.Rect, xs: list, ys: list, title: str):
     """
     Draw a plot with data xs and ys on surface surf in rectangle rect
-    :param surf:
-    :param rect:
-    :param xs:
-    :param ys:
-    :param title:
-    :return:
+    :param surf: Surface where the plot will be drawn
+    :param rect: rect of the surface corresponding to position and dimension of the plot
+    :param xs: x coordinate of ever point of dataset
+    :param ys: y coordinate of ever point of dataset
+    :param title: String to be shown on top of plot
     """
 
     plot_surf = surf.subsurface(rect)
