@@ -71,6 +71,8 @@ class World:
         self.id = uuid.uuid1()
         self.t = 0
 
+        self.is_removed_if_out_of_world = True
+
     def add_particle(self, p: Particle) -> None:
         """
         :param p: particle to be added to the world
@@ -99,5 +101,15 @@ class World:
         return f
 
     def _handle_out_of_world(self, p: Particle) -> None:
-        p.r.x %= self.rect.w
-        p.r.y %= self.rect.h
+
+        if self.is_removed_if_out_of_world:
+
+            if not 0 < p.r.x < self.rect.w:
+                self.particles.remove(p)
+                return
+
+            if not 0 < p.r.y < self.rect.h:
+                self.particles.remove(p)
+        else :
+            p.r.x %= self.rect.w
+            p.r.y %= self.rect.h
