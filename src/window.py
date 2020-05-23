@@ -7,6 +7,7 @@ import pygame
 from pygame import Vector2
 from pygame.rect import Rect
 
+from src.physics import World
 from src.plot import draw_plot
 
 
@@ -165,6 +166,10 @@ class Plotter:
         plot_width = width - Plotter.text_width
 
         id = selected.id
+
+        if id not in self.entity_dict:
+            return
+
         ts = self.entity_dict[id]["ts"]
         xs = self.entity_dict[id]["xs"]
         ys = self.entity_dict[id]["ys"]
@@ -215,7 +220,8 @@ class Viewer:
         self.surf = surf
         self.window = window
 
-        self.origin = (surf.get_rect().w // 2, surf.get_rect().h // 2)  # In the surface, coordinate of the origin
+        self.origin = (
+            surf.get_rect().w // 2, surf.get_rect().h // 2)  # In the surface in pixel, coordinate of the origin
 
         self.world_shift = (0, 0)  # shift between the center of the view and the origin of the world
         self.world_scale = 1  # n_pixel = world_length * world_scale
@@ -230,11 +236,12 @@ class Viewer:
 
         self.surf.fill((0, 0, 0))
 
-        self.world_shift = observer.kin.r.xy
+        if observer.type != EntityType.World:
+            self.world_shift = observer.kin.r.xy
 
-        self._draw_selected_highlight(selected)
+        self._draw_selected_highlight(selected, world)
         self._draw_world_rectangle(world)
-        self._draw_reference_axis(observer)
+        self._draw_reference_axis(observer, world)
         self._draw_particles(world, observer)
         self._draw_surface_frame()
 
@@ -242,7 +249,7 @@ class Viewer:
         x, y = self.world_shift
         ox, oy = self.origin
         sx, sy = self._pixel_to_world_len(pos[0] - ox), self._pixel_to_world_len(pos[1] - oy)
-        self.world_shift = x + sx, y + sy
+        self.world_shift = x + sx, y - sy
 
     def increase_scale(self):
         self.world_scale *= 2
@@ -250,11 +257,11 @@ class Viewer:
     def decrease_scale(self):
         self.world_scale /= 2
 
-    def _world_to_pixel_pos(self, world_r: Tuple[float, float]):
+    def _world_to_pixel_pos(self, world_r: Tuple[float, float], world_dim: Tuple[int, int]):
         ox, oy = self.origin
-        owx, owy = self.world_shift
+        owx, owy = self.world_shift[0], world_dim[1] - self.world_shift[1]
         owx, owy = self._world_to_pixel_len(owx), self._world_to_pixel_len(owy)
-        wx, wy = world_r
+        wx, wy = world_r[0], world_dim[1] - world_r[1]
         return ox + self._world_to_pixel_len(wx) - owx, oy + self._world_to_pixel_len(wy) - owy
 
     def _world_to_pixel_len(self, world_len):
@@ -263,17 +270,17 @@ class Viewer:
     def _pixel_to_world_len(self, pixel_len):
         return int(pixel_len / self.world_scale)
 
-    def _draw_selected_highlight(self, observer):
-        r = self._world_to_pixel_pos(observer.kin.r.xy)
+    def _draw_selected_highlight(self, observer, world):
+        r = self._world_to_pixel_pos(observer.kin.r.xy, world.rect.size)
         pygame.draw.circle(self.surf, (255, 255, 255), r, 6)
 
     def _draw_world_rectangle(self, world):
-        x, y = self._world_to_pixel_pos((0, 0))
+        x, y = self._world_to_pixel_pos((0, 0), world.rect.size)
         w, h = self._world_to_pixel_len(world.rect.w), self._world_to_pixel_len(world.rect.h)
-        pygame.draw.rect(self.surf, (0, 128, 128), pygame.Rect(x, y, w, h), 3)
+        pygame.draw.rect(self.surf, (0, 128, 128), pygame.Rect(x, y - h, w, h), 3)
 
-    def _draw_reference_axis(self, observer):
-        x, y = self._world_to_pixel_pos(observer.kin.r.xy)
+    def _draw_reference_axis(self, observer, world):
+        x, y = self._world_to_pixel_pos(observer.kin.r.xy, world.rect.size)
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x + 10, y))
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x, y + 10))
         text = Viewer.font.render("{:.2f}".format(10 / self.world_scale), True, (255, 255, 255))
@@ -281,7 +288,7 @@ class Viewer:
 
     def _draw_particles(self, world, observer):
         for p in world.particles:
-            r = self._world_to_pixel_pos(p.r)
+            r = self._world_to_pixel_pos(p.r, world.rect.size)
             r = int(r[0]), int(r[1])
             v = self._world_to_pixel_len(p.v.x - observer.kin.v.x), self._world_to_pixel_len(p.v.y - observer.kin.v.y)
             v = int(v[0]), int(v[1])
@@ -291,8 +298,8 @@ class Viewer:
 
     def _draw_particle(self, r, v, a):
         pygame.draw.circle(self.surf, (255, 0, 0), r, 3)
-        pygame.draw.line(self.surf, (0, 255, 0), r, (r[0] + v[0], r[1] + v[1]), 2)
-        pygame.draw.line(self.surf, (0, 0, 255), r, (r[0] + a[0], r[1] + a[1]), 2)
+        pygame.draw.line(self.surf, (0, 255, 0), r, (r[0] + v[0], r[1] - v[1]), 2)
+        pygame.draw.line(self.surf, (0, 0, 255), r, (r[0] + a[0], r[1] - a[1]), 2)
 
     def _draw_surface_frame(self):
         pygame.draw.rect(self.surf, (128, 0, 0), self.surf.get_rect(), 3)
@@ -317,26 +324,33 @@ class Window:
 
         self.selected_entity_index = 0
         self.reference_entity_index = 0
+        self.entities = []
 
-    def update(self, world):
+        self.previous_world_t = -1.
+
+    def update(self, world: World, events):
         """ Update the visible elements with the given world """
 
-        self._handle_events()
+        is_world_updated = self.previous_world_t != world.t
+        if is_world_updated:
+            self.previous_world_t = world.t
 
-        entities = self._get_entities(world)
-        self.selected_entity_index %= len(entities)
-        selected_entity = entities[self.selected_entity_index]
-        reference_entity = entities[self.reference_entity_index]
+        self._handle_events(events)
 
-        self.plotter.update(entities, reference_entity)
+        self.entities = self._get_entities(world)
 
+        self.selected_entity_index %= len(self.entities)
+        selected_entity = self.entities[self.selected_entity_index]
+        reference_entity = self.entities[self.reference_entity_index]
         self.viewer.draw(world, reference_entity, selected_entity)
-        self.plotter.draw(selected_entity, entities)
+
+        if is_world_updated: self.plotter.update(self.entities, reference_entity)
+        self.plotter.draw(selected_entity, self.entities)
 
         pygame.display.flip()
 
-    def _handle_events(self):
-        for event in pygame.event.get():
+    def _handle_events(self, events):
+        for event in events:
 
             if event.type == pygame.QUIT:
                 sys.exit()
