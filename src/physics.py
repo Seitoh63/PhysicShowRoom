@@ -1,8 +1,19 @@
+import math
 import uuid
 from typing import Tuple
 
 import pygame
 from pygame import Vector2
+
+
+class Ray:
+    """
+    Class representing a ray of light
+    """
+
+    def __init__(self, emitter, points):
+        self.emitter = emitter
+        self.points = points
 
 
 class Particle:
@@ -37,6 +48,63 @@ class Particle:
         self.r += self.v * dt
 
 
+class RayEmitter:
+    """
+    Class that generate rays from punctual entities
+    """
+
+    def __init__(self, width, height):
+        self.n_rays = 1000
+        self.width, self.height = width, height
+
+    def emit(self, particle: Particle) -> [Ray]:
+        return [self._generate_rays(i, particle) for i in range(self.n_rays)]
+
+    def _generate_rays(self, i, particle):
+        x, y = (particle.r.x, particle.r.y)
+        angle = 2 * math.pi * i / self.n_rays
+        a = math.tan(angle)
+        b = y - (a * x)
+
+
+        if a != 0:
+            x_in_y0 = -b / a
+            x_in_y1 = (self.height - b) / a
+            y_in_x0 = b
+            y_in_x1 = (a * self.width) + b
+        else:
+            x_in_y0 = x
+            x_in_y1 = x
+
+
+        if angle <= math.pi / 2:
+            if 0 <= x_in_y1 <= self.width:
+                return Ray(particle, [(x, y), (x_in_y1, self.height)])
+
+            if 0 <= y_in_x1 <= self.height:
+                return Ray(particle, [(x, y), (self.width, y_in_x1)])
+
+        if math.pi / 2 < angle <= math.pi:
+            if 0 <= x_in_y1 <= self.width:
+                return Ray(particle, [(x, y), (x_in_y1, self.height)])
+
+            if 0 <= y_in_x0 <= self.height:
+                return Ray(particle, [(x, y), (0, y_in_x0)])
+
+        if math.pi < angle <= 3./2.*math.pi:
+            if 0 <= x_in_y0 <= self.width:
+                return Ray(particle, [(x, y), (x_in_y0, 0)])
+
+            if 0 <= y_in_x0 <= self.height:
+                return Ray(particle, [(x, y), (0, y_in_x0)])
+
+        if angle > 3./2.*math.pi:
+            if 0 <= x_in_y0 <= self.width:
+                return Ray(particle, [(x, y), (x_in_y0, 0)])
+
+            if 0 <= y_in_x1 <= self.height:
+                return Ray(particle, [(x, y), (self.width, y_in_x1)])
+
 class CentralForce:
 
     def __init__(self, center: Vector2, magn: float):
@@ -67,6 +135,7 @@ class World:
     def __init__(self, dim: Tuple[int, int]):
         self.rect = pygame.Rect((0, 0), dim)
         self.particles = []
+        self.rays = []
         self.forces = []
         self.id = uuid.uuid1()
         self.t = 0
@@ -94,6 +163,8 @@ class World:
             p.update(dt, forces[i])
             self._handle_out_of_world(p)
 
+        self._emit_rays()
+
     def _compute_force_on(self, p: Particle):
         f = Vector2()
         for force in self.forces:
@@ -110,6 +181,11 @@ class World:
 
             if not 0 < p.r.y < self.rect.h:
                 self.particles.remove(p)
-        else :
+        else:
             p.r.x %= self.rect.w
             p.r.y %= self.rect.h
+
+    def _emit_rays(self):
+        ray_emitter = RayEmitter(self.rect.w, self.rect.h)
+        self.rays = [ray_emitter.emit(p) for p in self.particles]
+        self.rays = [y for x in self.rays for y in x]

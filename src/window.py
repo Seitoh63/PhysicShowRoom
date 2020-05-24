@@ -32,7 +32,7 @@ class ParticleKinematic:
 
 class EntityType(Enum):
     Particle = 1,
-    World = 2
+    World = 2,
 
 
 class Entity:
@@ -243,6 +243,7 @@ class Viewer:
         self._draw_world_rectangle(world)
         self._draw_reference_axis(observer, world)
         self._draw_particles(world, observer)
+        self._draw_rays(world, observer)
         self._draw_surface_frame()
 
     def set_observer_shift(self, pos: Tuple[int, int]) -> None:
@@ -286,6 +287,17 @@ class Viewer:
         text = Viewer.font.render("{:.2f}".format(10 / self.world_scale), True, (255, 255, 255))
         self.surf.blit(text, (x, y))
 
+    def _draw_rays(self, world, observer):
+        for ray in world.rays:
+            for i in range(len(ray.points) - 1):
+                x0, y0 = ray.points[i]
+                x1, y1 = ray.points[i + 1]
+                r0 = self._world_to_pixel_pos((x0, y0), world.rect.size)
+                r1 = self._world_to_pixel_pos((x1, y1), world.rect.size)
+                r0 = int(r0[0]), int(r0[1])
+                r1 = int(r1[0]), int(r1[1])
+                pygame.draw.line(self.surf, (255, 255, 255), r0, r1, 1)
+
     def _draw_particles(self, world, observer):
         for p in world.particles:
             r = self._world_to_pixel_pos(p.r, world.rect.size)
@@ -297,6 +309,7 @@ class Viewer:
             self._draw_particle(r, v, a)
 
     def _draw_particle(self, r, v, a):
+
         pygame.draw.circle(self.surf, (255, 0, 0), r, 3)
         pygame.draw.line(self.surf, (0, 255, 0), r, (r[0] + v[0], r[1] - v[1]), 2)
         pygame.draw.line(self.surf, (0, 0, 255), r, (r[0] + a[0], r[1] - a[1]), 2)

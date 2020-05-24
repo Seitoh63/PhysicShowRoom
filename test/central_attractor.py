@@ -9,7 +9,7 @@ w = World((2000, 2000))
 c = Vector2(w.rect.w // 2, w.rect.h // 2)
 w.forces.append(CentralForce(c, 10000.))
 
-n_particles = 25
+n_particles = 2
 vmax = 100
 for _ in range(n_particles):
     pos = random.randint(0, w.rect.w), random.randint(0, w.rect.h)
