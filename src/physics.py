@@ -6,6 +6,16 @@ import pygame
 from pygame import Vector2
 
 
+class PlaneMirror:
+    """
+    Class representing a plane mirror
+    """
+
+    def __init__(self, p0, p1):
+        self.p0 = p0
+        self.p1 = p1
+
+
 class Ray:
     """
     Class representing a ray of light
@@ -54,18 +64,29 @@ class RayEmitter:
     """
 
     def __init__(self, width, height):
-        self.n_rays = 1000
+        self.n_rays = 100
         self.width, self.height = width, height
 
-    def emit(self, particle: Particle) -> [Ray]:
-        return [self._generate_rays(i, particle) for i in range(self.n_rays)]
+    def emit(self, particle: Particle, mirrors: [PlaneMirror]) -> [Ray]:
+        return [self._generate_rays(2 * math.pi * i / self.n_rays, particle, mirrors) for i in range(self.n_rays)]
 
-    def _generate_rays(self, i, particle):
+    def _generate_rays(self, angle, particle, mirrors):
+        ray = self._generate_straight_ray(angle, particle)
+        for mirror in mirrors :
+            ma,mb,mc = self._get_line_equation_coefficients(mirror.p0, mirror.p1)
+            ra, rb, rc = self._get_line_equation_coefficients(ray.points[-2], ray.points[-1])
+        return ray
+    def _get_line_equation_coefficients(self, p0, p1):
+        x0, y0 = p0
+        x1, y1 = p1
+        a = (y1 - y0) / (x1 - x0)
+        c = y0 - a * x0
+        return a, 1., c
+
+    def _generate_straight_ray(self, angle, particle):
         x, y = (particle.r.x, particle.r.y)
-        angle = 2 * math.pi * i / self.n_rays
         a = math.tan(angle)
         b = y - (a * x)
-
 
         if a != 0:
             x_in_y0 = -b / a
@@ -75,7 +96,6 @@ class RayEmitter:
         else:
             x_in_y0 = x
             x_in_y1 = x
-
 
         if angle <= math.pi / 2:
             if 0 <= x_in_y1 <= self.width:
@@ -91,19 +111,20 @@ class RayEmitter:
             if 0 <= y_in_x0 <= self.height:
                 return Ray(particle, [(x, y), (0, y_in_x0)])
 
-        if math.pi < angle <= 3./2.*math.pi:
+        if math.pi < angle <= 3. / 2. * math.pi:
             if 0 <= x_in_y0 <= self.width:
                 return Ray(particle, [(x, y), (x_in_y0, 0)])
 
             if 0 <= y_in_x0 <= self.height:
                 return Ray(particle, [(x, y), (0, y_in_x0)])
 
-        if angle > 3./2.*math.pi:
+        if angle > 3. / 2. * math.pi:
             if 0 <= x_in_y0 <= self.width:
                 return Ray(particle, [(x, y), (x_in_y0, 0)])
 
             if 0 <= y_in_x1 <= self.height:
                 return Ray(particle, [(x, y), (self.width, y_in_x1)])
+
 
 class CentralForce:
 
@@ -135,6 +156,7 @@ class World:
     def __init__(self, dim: Tuple[int, int]):
         self.rect = pygame.Rect((0, 0), dim)
         self.particles = []
+        self.mirrors = []
         self.rays = []
         self.forces = []
         self.id = uuid.uuid1()
@@ -187,5 +209,5 @@ class World:
 
     def _emit_rays(self):
         ray_emitter = RayEmitter(self.rect.w, self.rect.h)
-        self.rays = [ray_emitter.emit(p) for p in self.particles]
+        self.rays = [ray_emitter.emit(p, self.mirrors) for p in self.particles]
         self.rays = [y for x in self.rays for y in x]
