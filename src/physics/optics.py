@@ -40,8 +40,8 @@ class PlaneMirror:
         if not p:
             return None
 
-        r0 = ray_segment.p0
-        if r0[0] == p[0] and r0[1] == p[1]:
+        r0 = ray_segment.first
+        if abs(r0[0]-p[0]) < 0.0001 and abs(r0[1]-p[1]) < 0.0001:
             return None
 
         reflection_angle = 2 * self._get_incidence_angle(incident_vector)
@@ -77,12 +77,13 @@ class RayEmitter:
     """
 
     def __init__(self, width, height):
-        self.n_rays = 1280
+        self.n_rays = 128
         self.width, self.height = width, height
 
     def emit(self, particle: Particle, mirrors: [PlaneMirror]) -> [Ray]:
         """ Emit rays from a particle """
-        rays = [self._generate_ray(2 * math.pi * i / self.n_rays, particle, mirrors) for i in range(self.n_rays)]
+        angles = [math.pi * 2 * i / self.n_rays for i in range(self.n_rays)]
+        rays = [self._generate_ray(angle, particle, mirrors) for angle in angles]
         return [ray for ray in rays if ray]
 
     def _generate_ray(self, angle: float, particle: Particle, mirrors: List[PlaneMirror]) -> Optional[Ray]:
@@ -102,9 +103,10 @@ class RayEmitter:
 
             ray.points.pop()
             ray.add(reflections[0][0])
-            angle = reflections[0][1].angle(Vector(1., 0.))
+            angle = Vector(1., 0.).angle(reflections[0][1])
+            angle = angle if Vector(1., 0.).cross_product(reflections[0][1]) > 0 else - angle
 
-            if len(ray.points) > 10:
+            if len(ray.points) > 100:
                 return ray
 
     def _intersect_with_mirrors(self, ray: Ray, mirrors: List[PlaneMirror]) -> List[Tuple[Tuple[float, float], Vector]]:
@@ -127,6 +129,10 @@ class RayEmitter:
         return a, 1., c
 
     def _propagate_ray(self, angle: float, ray: Ray) -> None:
+
+        if angle < 0. :
+            angle += 2*math.pi
+
         x, y = ray.points[-1]
         a = math.tan(angle)
         b = y - (a * x)

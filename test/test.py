@@ -49,7 +49,7 @@ pygame.init()
 win_surf = pygame.display.set_mode((500, 500))
 
 rays = []
-mirrors = [generate_mirror()]
+mirrors = [PlaneMirror(DirectedSegment((0,250),(500,250)))]
 
 while True:
 
