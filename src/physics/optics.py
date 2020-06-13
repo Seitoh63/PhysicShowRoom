@@ -41,7 +41,7 @@ class PlaneMirror:
             return None
 
         r0 = ray_segment.first
-        if abs(r0[0]-p[0]) < 0.0001 and abs(r0[1]-p[1]) < 0.0001:
+        if abs(r0[0] - p[0]) < 0.000001 and abs(r0[1] - p[1]) < 0.000001:
             return None
 
         reflection_angle = 2 * self._get_incidence_angle(incident_vector)
@@ -77,12 +77,12 @@ class RayEmitter:
     """
 
     def __init__(self, width, height):
-        self.n_rays = 128
+        self.n_rays = 1024
         self.width, self.height = width, height
 
     def emit(self, particle: Particle, mirrors: [PlaneMirror]) -> [Ray]:
         """ Emit rays from a particle """
-        angles = [math.pi * 2 * i / self.n_rays for i in range(self.n_rays)]
+        angles = [((math.pi-0.00001) * 2 * i / (self.n_rays)) + 0.000001 for i in range(self.n_rays)]
         rays = [self._generate_ray(angle, particle, mirrors) for angle in angles]
         return [ray for ray in rays if ray]
 
@@ -130,8 +130,11 @@ class RayEmitter:
 
     def _propagate_ray(self, angle: float, ray: Ray) -> None:
 
-        if angle < 0. :
-            angle += 2*math.pi
+        if angle < 0.:
+            angle += 2 * math.pi
+
+        if angle > 2 * math.pi :
+            angle -= 2 * math.pi
 
         x, y = ray.points[-1]
         a = math.tan(angle)

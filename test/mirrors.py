@@ -7,7 +7,7 @@ from src.simulation import Simulation
 w = World((800, 600))
 
 m = 1.
-w.add_particle(Particle(Vector(400., 300.), Vector(0, 0), m))
+w.add_particle(Particle(Vector(0., 0.), Vector(10, 10), m))
 
 w.mirrors.append(PlaneMirror(Segment((0, 150), (200, 0))))
 w.mirrors.append(PlaneMirror(Segment((650, 0), (800, 150))))
