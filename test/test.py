@@ -62,7 +62,7 @@ while True:
             mirror = mirrors[j]
             reflection_vector = mirror.reflect(ray)
             if not reflection_vector: continue
-            p = ray.directed_segments[-1].get_intersection_point(mirror.segment)
+            p = ray.directed_segments[-1].intersection_point(mirror.segment)
 
             s = reflection_vector.directed_segment(p, 200)
             pygame.draw.line(win_surf, (255, 255, 0), s.p0, s.p1)

@@ -1,8 +1,10 @@
 import math
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from src.mathematics import DirectedSegment, Segment, Vector
 from src.physics.mechanics import Particle
+
+Coefs = Tuple[float, float, float]
 
 
 class Ray:
@@ -22,19 +24,16 @@ class PlaneMirror:
     def __init__(self, segment: Segment):
         self.segment = segment
 
-    def p0(self):
-        return self.segment.p0
-
-    def p1(self):
-        return self.segment.p1
-
-    def segment(self):
+    def segment(self) -> Segment:
+        """ Return the segment representing the surface of the mirror"""
         return self.segment
 
     def reflect(self, ray: Ray) -> Optional[Vector]:
+        """ Return a vector representing the direction of the reflected ray. If no reflection, return None."""
+
         ray_segment = ray.directed_segments[-1]
-        incident_vector = ray_segment.get_colinear_vector().invert()
-        p = ray_segment.get_intersection_point(self.segment)
+        incident_vector = ray_segment.colinear_vector().invert()
+        p = ray_segment.intersection_point(self.segment)
 
         if not p:
             return None
@@ -44,7 +43,7 @@ class PlaneMirror:
 
         return reflection_vector
 
-    def _get_incidence_angle(self, incident_vector):
+    def _get_incidence_angle(self, incident_vector: Vector) -> float:
         normal_vec_angle = incident_vector.angle(self.segment.get_normal_vector())
         inverted_normal_vec_angle = incident_vector.angle(self.segment.get_normal_vector().invert())
 
@@ -57,7 +56,7 @@ class PlaneMirror:
 
         return angle
 
-    def _get_reflection_vector(self, reflection_angle, incident_vector):
+    def _get_reflection_vector(self, reflection_angle: float, incident_vector: Vector):
         cs = math.cos(reflection_angle)
         sn = math.sin(reflection_angle)
         x, y = incident_vector.x, incident_vector.y
@@ -76,22 +75,21 @@ class RayEmitter:
         self.width, self.height = width, height
 
     def emit(self, particle: Particle, mirrors: [PlaneMirror]) -> [Ray]:
-        # angles = [0, 2 * math.pi * 1 / 4.]
-        # return [self._generate_rays(angle, particle, mirrors) for angle in angles]
-        return [self._generate_rays(2 * math.pi * i / self.n_rays, particle, mirrors) for i in range(self.n_rays)]
+        """ Emit rays from a particle """
+        return [self._generate_ray(2 * math.pi * i / self.n_rays, particle, mirrors) for i in range(self.n_rays)]
 
-    def _generate_rays(self, angle, particle, mirrors : List[PlaneMirror]):
+    def _generate_ray(self, angle: float, particle: Particle, mirrors: List[PlaneMirror]) -> Ray:
         ray = self._generate_straight_ray(angle, particle)
 
         intersection_points = []
         for mirror in mirrors:
             ray_segment = ray.directed_segments[-1]
             mirror_segment = mirror.segment
-            intersection = ray_segment.get_intersection_point(mirror_segment)
+            intersection = ray_segment.intersection_point(mirror_segment)
             if intersection:
                 intersection_points.append(intersection)
 
-        if intersection_points == []:
+        if not intersection_points:
             return ray
 
         px, py = particle.r
@@ -101,7 +99,7 @@ class RayEmitter:
         print(closest_intersection_point)
         return ray
 
-    def _get_line_equation_coefficients(self, p0, p1):
+    def _get_line_equation_coefficients(self, p0: Tuple[float, float], p1: Tuple[float, float]) -> Coefs:
         x0, y0 = p0
         x1, y1 = p1
 
@@ -112,7 +110,7 @@ class RayEmitter:
         c = y0 - a * x0
         return a, 1., c
 
-    def _generate_straight_ray(self, angle, particle):
+    def _generate_straight_ray(self, angle: float, particle: Particle) -> Ray:
         x, y = (particle.r.x, particle.r.y)
         a = math.tan(angle)
         b = y - (a * x)
@@ -131,7 +129,7 @@ class RayEmitter:
                 return Ray([DirectedSegment((x, y), (self.width, y_in_x1))])
 
             if 0 <= x_in_y1 <= self.width:
-                return Ray( [DirectedSegment((x, y), (x_in_y1, self.height))])
+                return Ray([DirectedSegment((x, y), (x_in_y1, self.height))])
 
         if math.pi / 2 <= angle < math.pi:
             if 0 <= x_in_y1 <= self.width:

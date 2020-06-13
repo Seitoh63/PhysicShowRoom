@@ -2,7 +2,6 @@ import uuid
 from typing import Tuple
 
 import pygame
-from pygame import Vector2
 
 from src.mathematics import Vector
 from src.physics.mechanics import Particle
@@ -49,10 +48,10 @@ class World:
 
         self._emit_rays()
 
-    def _compute_force_on(self, p: Particle):
+    def _compute_force_on(self, p: Particle) -> Vector:
         f = Vector()
         for force in self.forces:
-            f += force.applied_on(p)
+            f += force.apply_on(p)
         return f
 
     def _handle_out_of_world(self, p: Particle) -> None:
@@ -69,7 +68,7 @@ class World:
             p.r.x %= self.rect.w
             p.r.y %= self.rect.h
 
-    def _emit_rays(self):
+    def _emit_rays(self) -> None:
         ray_emitter = RayEmitter(self.rect.w, self.rect.h)
         self.rays = [ray_emitter.emit(p, self.mirrors) for p in self.particles]
         self.rays = [y for x in self.rays for y in x]

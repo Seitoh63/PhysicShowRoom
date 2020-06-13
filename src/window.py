@@ -237,7 +237,7 @@ class Viewer:
         self.surf.fill((0, 0, 0))
 
         if observer.type != EntityType.World:
-            self.world_shift = observer.kin.r.xy()
+            self.world_shift = observer.kin.r
 
         self._draw_selected_highlight(selected, world)
         self._draw_world_rectangle(world)
@@ -273,7 +273,7 @@ class Viewer:
         return int(pixel_len / self.world_scale)
 
     def _draw_selected_highlight(self, observer, world):
-        r = self._world_to_pixel_pos(observer.kin.r.xy(), world.rect.size)
+        r = self._world_to_pixel_pos(observer.kin.r, world.rect.size)
         pygame.draw.circle(self.surf, (255, 255, 255), r, 6)
 
     def _draw_world_rectangle(self, world):
@@ -282,7 +282,7 @@ class Viewer:
         pygame.draw.rect(self.surf, (0, 128, 128), pygame.Rect(x, y - h, w, h), 3)
 
     def _draw_reference_axis(self, observer, world):
-        x, y = self._world_to_pixel_pos(observer.kin.r.xy(), world.rect.size)
+        x, y = self._world_to_pixel_pos(observer.kin.r, world.rect.size)
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x + 10, y))
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x, y + 10))
         text = Viewer.font.render("{:.2f}".format(10 / self.world_scale), True, (255, 255, 255))
@@ -320,8 +320,7 @@ class Viewer:
 
     def _draw_mirrors(self, world, observer):
         for mirror in world.mirrors:
-            x0, y0 = mirror.p0()
-            x1, y1 = mirror.p1()
+            x0, y0, x1, y1 = mirror.segment
             r0 = self._world_to_pixel_pos((x0, y0), world.rect.size)
             r1 = self._world_to_pixel_pos((x1, y1), world.rect.size)
             r0 = int(r0[0]), int(r0[1])

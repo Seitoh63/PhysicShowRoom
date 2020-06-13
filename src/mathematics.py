@@ -1,52 +1,57 @@
+from __future__ import annotations
+
 import math
+from typing import Tuple, Optional
 
 
 class Vector:
+    """ Class representing a 2d Vector"""
+
     def __init__(self, x: float = 0., y: float = 0.):
         self.x = x
         self.y = y
 
-    def xy(self):
-        return self.x, self.y
-
-    def __getitem__(self, item):
-        if item == 0 :
-            return self.x
-        if item == 1 :
-            return self.y
-        raise StopIteration()
-
-    def unit_vector(self):
+    def unit_vector(self) -> Vector:
+        """ Return a vector in same direction as self and with length 1"""
         norm = math.sqrt(self.x ** 2 + self.y ** 2)
         ux, uy = self.x / norm, self.y / norm
         return Vector(ux, uy)
 
-    def length(self):
+    def length(self) -> float:
+        """ Return length of the vector"""
         return math.sqrt((self.x ** 2) + (self.y ** 2))
 
-    def dot(self, vector):
+    def dot_product(self, vector: Vector) -> float:
+        """ Return dot product with the given vector"""
         return (vector.x * self.x) + (vector.y * self.y)
 
-    def cross_product(self, vector):
+    def cross_product(self, vector: Vector) -> float:
+        """ Return cross product with the given vector """
         return (vector.y * self.x) - (vector.x * self.y)
 
-    def angle(self, vector):
-        return math.acos(self.dot(vector) / (self.length() * vector.length()))
+    def angle(self, vector: Vector) -> float:
+        """ Return angle of the vector with respect to x axis """
+        return math.acos(self.dot_product(vector) / (self.length() * vector.length()))
 
-    def invert(self):
+    def invert(self) -> Vector:
+        """ Return a vector with opposite direction"""
         return Vector(-self.x, -self.y)
 
-    def scale_to(self, length: float):
+    def scale_to(self, length: float) -> Vector:
+        """ Return a vector in same direction scaled to given length"""
         unit_vector = self.unit_vector()
         return unit_vector.scale_by(length)
 
-    def scale_by(self, f: float):
+    def scale_by(self, f: float) -> Vector:
+        """ Return a vector scaled by the factor given"""
         return Vector(self.x * f, self.y * f)
 
-    def distance_to(self, v):
+    def distance_to(self, v: Vector) -> float:
+        """ Return the length of the difference of the two vectors """
         return math.sqrt((self.x - v.x) ** 2 + (self.y - v.y) ** 2)
 
-    def directed_segment(self, p0, length):
+    def directed_segment(self, p0: Tuple[float, float], length: float) -> DirectedSegment:
+        """ Return a directed segment from the given point in direction of the vector"""
         x1 = p0[0] + (self.unit_vector().x * length)
         y1 = p0[1] + (self.unit_vector().y * length)
         return DirectedSegment(p0, (x1, y1))
@@ -66,26 +71,35 @@ class Vector:
     def __truediv__(self, other: float):
         return Vector(self.x / other, self.y / other)
 
+    def __getitem__(self, item):
+        if item == 0:
+            return self.x
+        if item == 1:
+            return self.y
+        raise StopIteration()
 
 
 class Segment:
-    def __init__(self, p0, p1):
+    """ Class representing a segment"""
+
+    def __init__(self, p0: Tuple[float, float], p1: Tuple[float, float]):
         self.p0 = p0 if p0[0] < p1[0] else p1
         self.p1 = p1 if p0[0] < p1[0] else p0
 
-    def x0(self):
+    def x0(self) -> float:
         return self.p0[0]
 
-    def y0(self):
+    def y0(self) -> float:
         return self.p0[1]
 
-    def x1(self):
+    def x1(self) -> float:
         return self.p1[0]
 
-    def y1(self):
+    def y1(self) -> float:
         return self.p1[1]
 
-    def get_coefs(self):
+    def coefficients(self) -> Tuple[float, float]:
+        """Return the coefficients of the line equation"""
         x0, y0 = self.p0
         x1, y1 = self.p1
 
@@ -93,9 +107,10 @@ class Segment:
         b = y1 - (a * x1)
         return a, b
 
-    def get_intersection_point(self, segment):
-        a1, b1 = self.get_coefs()
-        a2, b2 = segment.get_coefs()
+    def intersection_point(self, segment: Segment) -> Optional[Tuple[float, float]]:
+        """ Return the intersection point between the 2 segments"""
+        a1, b1 = self.coefficients()
+        a2, b2 = segment.coefficients()
 
         if a1 == a2:
             return None
@@ -111,11 +126,25 @@ class Segment:
 
         return x, y
 
-    def get_colinear_vector(self):
+    def colinear_vector(self) -> Vector:
+        """ Get a colinear vector to the segment"""
         return Vector(self.x1() - self.x0(), self.y1() - self.y0()).unit_vector()
 
-    def get_normal_vector(self):
+    def get_normal_vector(self) -> Vector:
+        """ Get a normal vector to the segment"""
         return Vector(self.y0() - self.y1(), self.x1() - self.x0()).unit_vector()
+
+    def __getitem__(self, item):
+        if item == 0:
+            return self.x0()
+        if item == 1:
+            return self.y0()
+        if item == 2:
+            return self.x1()
+        if item == 3:
+            return self.y1()
+
+        raise StopIteration()
 
 
 class DirectedSegment(Segment):
@@ -123,10 +152,11 @@ class DirectedSegment(Segment):
     Class representing a segment with a direction
     """
 
-    def __init__(self, p0, p1):
+    def __init__(self, p0: Tuple[float, float], p1: Tuple[float, float]):
         super().__init__(p0, p1)
         self.first = p0
         self.second = p1
 
-    def get_colinear_vector(self):
+    def colinear_vector(self) -> Vector:
+        """ Get a colinear vector to the segment in the good direction"""
         return Vector(self.second[0] - self.first[0], self.second[1] - self.first[1]).unit_vector()

@@ -14,6 +14,6 @@ for _ in range(n_particles):
     pos = 0., 0.
     s = random.uniform(0, vmax), random.uniform(0, vmax)
     m = 1.
-    w.add_particle(Particle(Vector(0.,0.), Vector(s[0],s[1]), m))
+    w.add_particle(Particle(Vector(0., 0.), Vector(s[0], s[1]), m))
 
 Simulation(w).run()

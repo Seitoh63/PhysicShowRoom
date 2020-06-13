@@ -1,6 +1,5 @@
 import random
 
-
 from src.mathematics import Vector
 from src.physics.mechanics import CentralForce, Particle
 from src.physics.world import World
