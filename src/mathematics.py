@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import Tuple, Optional
 
+epsilon = 0.000001
+
 
 class Vector:
     """ Class representing a 2d Vector"""
@@ -29,12 +31,18 @@ class Vector:
         """ Return cross product with the given vector """
         return (vector.y * self.x) - (vector.x * self.y)
 
+    def angle_to_x(self) -> float:
+        angle = self.angle(Vector(1., 0))
+        return angle
+
     def angle(self, vector: Vector) -> float:
         """ Return angle of the vector with respect to x axis """
         c = self.dot_product(vector) / (self.length() * vector.length())
         c = 1. if c > 1. else c
         c = -1. if c < -1. else c
-        return math.acos(c)
+        angle = math.acos(c)
+        angle = angle if self.cross_product(vector) > 0 else -angle
+        return angle
 
     def invert(self) -> Vector:
         """ Return a vector with opposite direction"""
@@ -118,13 +126,24 @@ class Segment:
         if a1 == a2:
             return None
 
-        x = (b2 - b1) / (a1 - a2)
-        y = ((a2 * b1) - (a1 * b2)) / (a2 - a1)
+        if a1 == float('inf') or a1 == float('-inf'):
+            x = self.p0[0]
+            y = a2 * x + b2
 
-        min_x = max(self.x0(), segment.x0())
-        max_x = min(self.x1(), segment.x1())
+        elif a2 == float('inf') or a2 == float('-inf'):
+            x = segment.p0[0]
+            y = a1 * x + b1
 
-        if not min_x <= x <= max_x:
+        else:
+            x = (b2 - b1) / (a1 - a2)
+            y = ((a2 * b1) - (a1 * b2)) / (a2 - a1)
+
+        min_x = max(min(self.x0(), self.x1()), min(segment.x0(), segment.x1()))
+        max_x = min(max(self.x0(), self.x1()), max(segment.x0(), segment.x1()))
+
+        min_y = max(min(self.y0(), self.y1()), min(segment.y0(), segment.y1()))
+        max_y = min(max(self.y0(), self.y1()), max(segment.y0(), segment.y1()))
+        if not min_x - epsilon <= x <= max_x + epsilon or not min_y - epsilon <= y <= max_y + epsilon:
             return None
 
         return x, y

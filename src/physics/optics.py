@@ -30,39 +30,30 @@ class PlaneMirror:
     def __init__(self, segment: Segment):
         self.segment = segment
 
-    def reflect(self, ray: Ray) -> Optional[Tuple[Tuple[float, float], Vector]]:
+    def reflect(self, ray_segment) -> Optional[Tuple[float, float, float]]:
         """ Return a vector representing the direction of the reflected ray. If no reflection, return None."""
 
-        ray_segment = ray.segments()[-1]
         incident_vector = ray_segment.colinear_vector().invert()
         p = ray_segment.intersection_point(self.segment)
-
         if not p:
             return None
 
         r0 = ray_segment.first
+        ray_segment.intersection_point(self.segment)
         if abs(r0[0] - p[0]) < 0.000001 and abs(r0[1] - p[1]) < 0.000001:
             return None
 
         reflection_angle = 2 * self._get_incidence_angle(incident_vector)
         reflection_vector = self._get_reflection_vector(reflection_angle, incident_vector)
 
-        return p, reflection_vector
+        return p[0], p[1], - reflection_vector.angle_to_x()
 
     def _get_incidence_angle(self, incident_vector: Vector) -> float:
         normal_vec_angle = incident_vector.angle(self.segment.get_normal_vector())
         inverted_normal_vec_angle = incident_vector.angle(self.segment.get_normal_vector().invert())
+        return normal_vec_angle if abs(normal_vec_angle) < abs(inverted_normal_vec_angle) else inverted_normal_vec_angle
 
-        if abs(normal_vec_angle) < abs(inverted_normal_vec_angle):
-            angle = normal_vec_angle if incident_vector.cross_product(
-                self.segment.get_normal_vector()) > 0 else - normal_vec_angle
-        else:
-            angle = inverted_normal_vec_angle if incident_vector.cross_product(
-                self.segment.get_normal_vector().invert()) > 0 else - inverted_normal_vec_angle
-
-        return angle
-
-    def _get_reflection_vector(self, reflection_angle: float, incident_vector: Vector):
+    def _get_reflection_vector(self, reflection_angle: float, incident_vector: Vector) -> Vector:
         cs = math.cos(reflection_angle)
         sn = math.sin(reflection_angle)
         x, y = incident_vector.x, incident_vector.y
@@ -77,12 +68,12 @@ class RayEmitter:
     """
 
     def __init__(self, width, height):
-        self.n_rays = 1024
+        self.n_rays = 16
         self.width, self.height = width, height
 
     def emit(self, particle: Particle, mirrors: [PlaneMirror]) -> [Ray]:
         """ Emit rays from a particle """
-        angles = [((math.pi-0.00001) * 2 * i / (self.n_rays)) + 0.000001 for i in range(self.n_rays)]
+        angles = [math.pi * 2 * i / self.n_rays for i in range(self.n_rays)]
         rays = [self._generate_ray(angle, particle, mirrors) for angle in angles]
         return [ray for ray in rays if ray]
 
@@ -90,97 +81,60 @@ class RayEmitter:
         ray = Ray((particle.r.x, particle.r.y))
 
         while True:
+            ray_segment = self._get_ray_segment(angle, ray)
+            intersections = [self._intersect_with_world(ray_segment)]
+            intersections.extend(self._intersect_with_mirrors(ray_segment, mirrors))
 
-            self._propagate_ray(angle, ray)
-
-            p0, p1 = ray.points[-2], ray.points[-1]
-            if p0[0] == p1[0] and p0[1] == p1[1]:
-                return None
-
-            reflections = self._intersect_with_mirrors(ray, mirrors)
-            if not reflections:
+            x, y, angle = self._closest_intersection(ray.points[-1], intersections)
+            ray.add((x, y))
+            if angle is None or len(ray.points) > 100:
+                if len(ray.points) > 100:
+                    print(ray)
                 return ray
 
-            ray.points.pop()
-            ray.add(reflections[0][0])
-            angle = Vector(1., 0.).angle(reflections[0][1])
-            angle = angle if Vector(1., 0.).cross_product(reflections[0][1]) > 0 else - angle
+    def _intersect_with_world(self, ray_segment: Segment) -> Tuple[float, float, float]:
 
-            if len(ray.points) > 100:
-                return ray
+        world_right = Segment((self.width, 0), (self.width, self.height))
+        world_bottom = Segment((0, 0), (self.width, 0))
+        world_top = Segment((0, self.height), (self.width, self.height))
+        world_left = Segment((0, 0), (0, self.height))
 
-    def _intersect_with_mirrors(self, ray: Ray, mirrors: List[PlaneMirror]) -> List[Tuple[Tuple[float, float], Vector]]:
-        reflected_vectors = []
+        p = ray_segment.intersection_point(world_right)
+        if p: return p[0], p[1], None
+        p = ray_segment.intersection_point(world_top)
+        if p: return p[0], p[1], None
+        p = ray_segment.intersection_point(world_bottom)
+        if p: return p[0], p[1], None
+        p = ray_segment.intersection_point(world_left)
+        if p: return p[0], p[1], None
+
+        raise Exception()
+
+    def _closest_intersection(self, point, intersections):
+        x, y = point
+        min_dist = float("inf")
+        index = -1
+
+        for i in range(len(intersections)):
+            ix, iy, _ = intersections[i]
+            d = math.sqrt((x - ix) ** 2 + (y - iy) ** 2)
+            if d < min_dist:
+                min_dist = d
+                index = i
+
+        return intersections[index]
+
+    def _intersect_with_mirrors(self, ray_segment: DirectedSegment, mirrors: List[PlaneMirror]):
+        intersections = []
         for mirror in mirrors:
-            r = mirror.reflect(ray)
+            r = mirror.reflect(ray_segment)
             if r:
-                reflected_vectors.append(r)
-        return reflected_vectors
+                intersections.append(r)
+        return intersections
 
-    def _get_line_equation_coefficients(self, p0: Tuple[float, float], p1: Tuple[float, float]) -> Coefs:
-        x0, y0 = p0
-        x1, y1 = p1
-
-        if x1 - x0 == 0:
-            return 0, 1., y0
-
-        a = (y1 - y0) / (x1 - x0)
-        c = y0 - a * x0
-        return a, 1., c
-
-    def _propagate_ray(self, angle: float, ray: Ray) -> None:
-
-        if angle < 0.:
-            angle += 2 * math.pi
-
-        if angle > 2 * math.pi :
-            angle -= 2 * math.pi
-
+    def _get_ray_segment(self, angle: float, ray: Ray) -> Segment:
+        v = Vector(math.cos(angle), math.sin(angle))
+        v = v.scale_to(self.width * self.height)
         x, y = ray.points[-1]
-        a = math.tan(angle)
-        b = y - (a * x)
-
-        if a != 0:
-            x_in_y0 = -b / a
-            x_in_y1 = (self.height - b) / a
-            y_in_x0 = b
-            y_in_x1 = (a * self.width) + b
-        else:
-            y_in_x0 = y
-            y_in_x1 = y
-
-        if angle < math.pi / 2:
-            if 0 <= y_in_x1 <= self.height:
-                ray.add((self.width, y_in_x1))
-                return
-
-            if 0 <= x_in_y1 <= self.width:
-                ray.add((x_in_y1, self.height))
-                return
-
-        if math.pi / 2 <= angle < math.pi:
-            if 0 <= x_in_y1 <= self.width:
-                ray.add((x_in_y1, self.height))
-                return
-
-            if 0 <= y_in_x0 <= self.height:
-                ray.add((0., y_in_x0))
-                return
-
-        if math.pi <= angle < 3. / 2. * math.pi:
-            if 0 <= x_in_y0 <= self.width:
-                ray.add((x_in_y0, 0.))
-                return
-
-            if 0 <= y_in_x0 <= self.height:
-                ray.add((0., y_in_x0))
-                return
-
-        if angle >= 3. / 2. * math.pi:
-            if 0 <= x_in_y0 <= self.width:
-                ray.add((x_in_y0, 0.))
-                return
-
-            if 0 <= y_in_x1 <= self.height:
-                ray.add((self.width, y_in_x1))
-                return
+        ray_segment = DirectedSegment((x, y), (x + v.x, y + v.y))
+        return ray_segment
