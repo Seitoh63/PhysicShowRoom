@@ -7,8 +7,10 @@ import pygame
 from src.mathematics import DirectedSegment
 from src.physics.optics import PlaneMirror, Ray
 
+
 def generate_point():
     return random.randint(0, 500), random.randint(0, 500)
+
 
 def generate_segment():
     x0, y0 = generate_point()
@@ -20,6 +22,7 @@ def generate_ray():
     ray = Ray(generate_point())
     ray.add(generate_point())
     return ray
+
 
 def generate_mirror():
     return PlaneMirror(generate_segment())

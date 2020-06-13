@@ -102,7 +102,7 @@ class RayEmitter:
 
             ray.points.pop()
             ray.add(reflections[0][0])
-            angle = reflections[0][1].angle(Vector(1.,0.))
+            angle = reflections[0][1].angle(Vector(1., 0.))
 
             if len(ray.points) > 10:
                 return ray
