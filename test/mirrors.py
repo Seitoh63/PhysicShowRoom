@@ -1,18 +1,16 @@
-import random
-
 from pygame import Vector2
 
-from src.physics import World, Particle, ConstantForce
+from src.mathematics import Segment, Vector
+from src.physics.mechanics import Particle
+from src.physics.optics import PlaneMirror
+from src.physics.world import World
 from src.simulation import Simulation
 
 w = World((800, 600))
 
-n_particles = 3
-vmax = 50
-for _ in range(n_particles):
-    pos = 0., 0.
-    s = random.uniform(0, vmax), random.uniform(0, vmax)
-    m = 1.
-    w.add_particle(Particle(Vector2(pos), Vector2(s), m))
+m = 1.
+w.add_particle(Particle(Vector(0.,0.), Vector(10,10), m))
+
+w.mirrors.append(PlaneMirror(Segment((0, 100), (100, 0))))
 
 Simulation(w).run()

@@ -4,10 +4,10 @@ from enum import Enum
 from typing import Tuple
 
 import pygame
-from pygame import Vector2
 from pygame.rect import Rect
 
-from src.physics import World
+from src.mathematics import Vector
+from src.physics.world import World
 from src.plot import draw_plot
 
 
@@ -19,15 +19,15 @@ class ParticleKinematic:
     def __init__(self,
                  t=0.,
                  m=0.,
-                 r: Vector2 = Vector2(0., 0.),
-                 v: Vector2 = Vector2(0., 0.),
-                 a: Vector2 = Vector2(0., 0.)
+                 r: Vector = Vector(0., 0.),
+                 v: Vector = Vector(0., 0.),
+                 a: Vector = Vector(0., 0.)
                  ):
         self.t = t
         self.m = m
-        self.r = pygame.Vector2(r)
-        self.v = pygame.Vector2(v)
-        self.a = pygame.Vector2(a)
+        self.r = r
+        self.v = v
+        self.a = a
 
 
 class EntityType(Enum):
@@ -112,14 +112,14 @@ class Plotter:
                 "Es": deque(maxlen=Plotter.queue_size)
             }
         E = 0
-        p = Vector2()
+        p = Vector()
         for e in entities:
             if e.type != EntityType.Particle:
                 continue
 
             v = (e.kin.v - observer.kin.v)
-            E += 0.5 * e.kin.m * v.length_squared()
-            p += e.kin.m * v
+            E += 0.5 * e.kin.m * v.length() ** 2
+            p += v * e.kin.m
 
         self.entity_dict[world.id]["ts"].append(world.kin.t)
         self.entity_dict[world.id]["Es"].append(E)
@@ -237,13 +237,14 @@ class Viewer:
         self.surf.fill((0, 0, 0))
 
         if observer.type != EntityType.World:
-            self.world_shift = observer.kin.r.xy
+            self.world_shift = observer.kin.r.xy()
 
         self._draw_selected_highlight(selected, world)
         self._draw_world_rectangle(world)
         self._draw_reference_axis(observer, world)
         self._draw_particles(world, observer)
         self._draw_rays(world, observer)
+        self._draw_mirrors(world, observer)
         self._draw_surface_frame()
 
     def set_observer_shift(self, pos: Tuple[int, int]) -> None:
@@ -272,7 +273,7 @@ class Viewer:
         return int(pixel_len / self.world_scale)
 
     def _draw_selected_highlight(self, observer, world):
-        r = self._world_to_pixel_pos(observer.kin.r.xy, world.rect.size)
+        r = self._world_to_pixel_pos(observer.kin.r.xy(), world.rect.size)
         pygame.draw.circle(self.surf, (255, 255, 255), r, 6)
 
     def _draw_world_rectangle(self, world):
@@ -281,7 +282,7 @@ class Viewer:
         pygame.draw.rect(self.surf, (0, 128, 128), pygame.Rect(x, y - h, w, h), 3)
 
     def _draw_reference_axis(self, observer, world):
-        x, y = self._world_to_pixel_pos(observer.kin.r.xy, world.rect.size)
+        x, y = self._world_to_pixel_pos(observer.kin.r.xy(), world.rect.size)
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x + 10, y))
         pygame.draw.line(self.surf, (255, 255, 255), (x, y), (x, y + 10))
         text = Viewer.font.render("{:.2f}".format(10 / self.world_scale), True, (255, 255, 255))
@@ -289,9 +290,9 @@ class Viewer:
 
     def _draw_rays(self, world, observer):
         for ray in world.rays:
-            for i in range(len(ray.points) - 1):
-                x0, y0 = ray.points[i]
-                x1, y1 = ray.points[i + 1]
+            for s in ray.directed_segments:
+                x0, y0 = s.p0
+                x1, y1 = s.p1
                 r0 = self._world_to_pixel_pos((x0, y0), world.rect.size)
                 r1 = self._world_to_pixel_pos((x1, y1), world.rect.size)
                 r0 = int(r0[0]), int(r0[1])
@@ -316,6 +317,16 @@ class Viewer:
 
     def _draw_surface_frame(self):
         pygame.draw.rect(self.surf, (128, 0, 0), self.surf.get_rect(), 3)
+
+    def _draw_mirrors(self, world, observer):
+        for mirror in world.mirrors:
+            x0, y0 = mirror.p0()
+            x1, y1 = mirror.p1()
+            r0 = self._world_to_pixel_pos((x0, y0), world.rect.size)
+            r1 = self._world_to_pixel_pos((x1, y1), world.rect.size)
+            r0 = int(r0[0]), int(r0[1])
+            r1 = int(r1[0]), int(r1[1])
+            pygame.draw.line(self.surf, (0, 255, 255), r0, r1, 1)
 
 
 class Window:
@@ -412,7 +423,7 @@ class Window:
         entities = [
             Entity(world.id,
                    EntityType.World,
-                   ParticleKinematic(world.t, 0., Vector2(world.rect.w // 2, world.rect.h // 2))
+                   ParticleKinematic(world.t, 0., Vector(world.rect.w // 2, world.rect.h // 2))
                    )
         ]
 
