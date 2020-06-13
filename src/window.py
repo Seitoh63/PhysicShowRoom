@@ -290,7 +290,7 @@ class Viewer:
 
     def _draw_rays(self, world, observer):
         for ray in world.rays:
-            for s in ray.directed_segments:
+            for s in ray.segments():
                 x0, y0 = s.p0
                 x1, y1 = s.p1
                 r0 = self._world_to_pixel_pos((x0, y0), world.rect.size)

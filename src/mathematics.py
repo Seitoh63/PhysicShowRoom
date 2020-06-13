@@ -31,7 +31,10 @@ class Vector:
 
     def angle(self, vector: Vector) -> float:
         """ Return angle of the vector with respect to x axis """
-        return math.acos(self.dot_product(vector) / (self.length() * vector.length()))
+        c= self.dot_product(vector) / (self.length() * vector.length())
+        c = 1. if c > 1. else c
+        c = -1. if c < -1. else c
+        return math.acos(c)
 
     def invert(self) -> Vector:
         """ Return a vector with opposite direction"""

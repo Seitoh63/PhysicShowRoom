@@ -7,23 +7,26 @@ import pygame
 from src.mathematics import DirectedSegment
 from src.physics.optics import PlaneMirror, Ray
 
+def generate_point():
+    return random.randint(0, 500), random.randint(0, 500)
 
 def generate_segment():
-    x0, y0 = random.randint(0, 500), random.randint(0, 500)
-    x1, y1 = random.randint(0, 500), random.randint(0, 500)
+    x0, y0 = generate_point()
+    x1, y1 = generate_point()
     return DirectedSegment((x0, y0), (x1, y1))
 
 
 def generate_ray():
-    return Ray([generate_segment()])
-
+    ray = Ray(generate_point())
+    ray.add(generate_point())
+    return ray
 
 def generate_mirror():
     return PlaneMirror(generate_segment())
 
 
 def draw_ray(ray: Ray):
-    for s in ray.directed_segments:
+    for s in ray.segments():
         pygame.draw.circle(win_surf, (0, 255, 0), s.first, 3)
         pygame.draw.circle(win_surf, (0, 0, 255), s.second, 3)
         pygame.draw.line(win_surf, (255, 255, 255), s.first, s.second)
@@ -36,7 +39,7 @@ def draw_rays(rays):
 
 def draw_mirrors(mirrors):
     for mirror in mirrors:
-        pygame.draw.line(win_surf, (0, 255, 255), mirror.p0(), mirror.p1())
+        pygame.draw.line(win_surf, (0, 255, 255), mirror.segment.p0, mirror.segment.p1)
 
 
 pygame.init()
@@ -60,9 +63,10 @@ while True:
         ray = rays[i]
         for j in range(len(mirrors)):
             mirror = mirrors[j]
-            reflection_vector = mirror.reflect(ray)
-            if not reflection_vector: continue
-            p = ray.directed_segments[-1].intersection_point(mirror.segment)
+            r = mirror.reflect(ray)
+            if not r: continue
+            intersection_point, reflection_vector = r
+            p = ray.segments()[-1].intersection_point(mirror.segment)
 
             s = reflection_vector.directed_segment(p, 200)
             pygame.draw.line(win_surf, (255, 255, 0), s.p0, s.p1)
