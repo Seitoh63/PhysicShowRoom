@@ -1,4 +1,6 @@
 # PhysicShowRoom
 
 Some experiments with particle simulations.
-![demo](https://imgur.com/gallery/XFKtNkR)
+<p float="center">
+  <img src="https://imgur.com/gallery/XFKtNkR" />
+</p>
